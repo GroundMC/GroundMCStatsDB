@@ -13,8 +13,13 @@ import java.sql.SQLException;
 import java.util.UUID;
 
 public class EventListener implements Listener {
+
+    EventListener() {
+        super();
+    }
+
     @EventHandler
-    public void a(PlayerStatisticIncrementEvent event) {
+    public void onStatisticIncrement(PlayerStatisticIncrementEvent event) {
 
         Connection connection = StatsDB.getConnection();
         String serverIdentifier = StatsDB.getConfiguration().getString("server.identifier");
@@ -42,9 +47,8 @@ public class EventListener implements Listener {
             statement.setString(3, event.getStatistic().name());
             if (event.getMaterial() != null) {
                 statement.setString(4, event.getMaterial().name());
-            }
-            if (event.getEntityType() != null) {
-                statement.setString(5, event.getEntityType().name());
+            } else if (event.getEntityType() != null) {
+                statement.setString(4, event.getEntityType().name());
             }
             statement.execute();
 
@@ -54,8 +58,7 @@ public class EventListener implements Listener {
             if (event.getMaterial() != null) {
                 builder.append(", `material`");
                 columns++;
-            }
-            if (event.getEntityType() != null) {
+            } else if (event.getEntityType() != null) {
                 builder.append(", `entity`");
                 columns++;
             }
@@ -70,9 +73,8 @@ public class EventListener implements Listener {
             statement.setInt(4, event.getNewValue());
             if (event.getMaterial() != null) {
                 statement.setString(5, event.getMaterial().name());
-            }
-            if (event.getEntityType() != null) {
-                statement.setString(6, event.getEntityType().name());
+            } else if (event.getEntityType() != null) {
+                statement.setString(5, event.getEntityType().name());
             }
             statement.execute();
         } catch (SQLException e) {
