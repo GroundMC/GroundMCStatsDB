@@ -1,0 +1,4 @@
+name: StatsDB
+version: 1.0
+author: GiantTreeLP
+main: com.github.gianttreelp.statsdb.StatsDB

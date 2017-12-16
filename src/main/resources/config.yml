@@ -1,0 +1,8 @@
+server:
+  identifier: "Server1"
+  sync_interval: 10000
+
+database:
+  username:
+  password:
+  url:
