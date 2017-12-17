@@ -10,6 +10,7 @@ import java.nio.ByteOrder;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.Queue;
 import java.util.UUID;
 
@@ -68,8 +69,13 @@ public class EventListener implements Listener {
             insertStatement.setInt(4, event.getNewValue());
             if (event.getMaterial() != null) {
                 insertStatement.setString(5, event.getMaterial().name());
-            } else if (event.getEntityType() != null) {
-                insertStatement.setString(5, event.getEntityType().name());
+            } else {
+                insertStatement.setNull(5, Types.VARCHAR);
+            }
+            if (event.getEntityType() != null) {
+                insertStatement.setString(6, event.getEntityType().name());
+            } else {
+                insertStatement.setNull(6, Types.VARCHAR);
             }
             insertStatement.addBatch();
         } catch (SQLException e) {
