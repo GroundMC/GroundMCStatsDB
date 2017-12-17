@@ -1,6 +1,7 @@
 package com.github.gianttreelp.statsdb;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Statistic;
 import org.bukkit.configuration.Configuration;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -11,14 +12,32 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 import static org.bukkit.Statistic.*;
 
 public class StatsDB extends JavaPlugin {
 
+    private static final List<Statistic> STATISTIC_LIST = Arrays.asList(
+            PLAY_ONE_TICK,
+            WALK_ONE_CM,
+            SWIM_ONE_CM,
+            FALL_ONE_CM,
+            SNEAK_TIME,
+            CLIMB_ONE_CM,
+            FLY_ONE_CM,
+            DIVE_ONE_CM,
+            MINECART_ONE_CM,
+            BOAT_ONE_CM,
+            PIG_ONE_CM,
+            HORSE_ONE_CM,
+            SPRINT_ONE_CM,
+            CROUCH_ONE_CM,
+            AVIATE_ONE_CM);
     private static Connection connection;
     private static Configuration configuration;
+    private EventListener eventListener;
 
     public static Connection getConnection() {
         return connection;
@@ -44,59 +63,62 @@ public class StatsDB extends JavaPlugin {
     }
 
     private void registerEventListener() {
-        Bukkit.getPluginManager().registerEvents(new EventListener(), this);
+        eventListener = new EventListener();
+        Bukkit.getPluginManager().registerEvents(eventListener, this);
     }
 
     private void registerTasks() {
         Bukkit.getScheduler().runTaskTimerAsynchronously(this,
-                () -> Bukkit.getOnlinePlayers().forEach(player -> {
-                    UUID playerId = player.getUniqueId();
-                    byte[] uuid = new byte[16];
-                    ByteBuffer.wrap(uuid).order(ByteOrder.BIG_ENDIAN)
-                            .putLong(playerId.getMostSignificantBits())
-                            .putLong(playerId.getLeastSignificantBits());
+                () -> {
                     String serverIdentifier = getConfig().getString("server.identifier");
-                    Arrays.asList(
-                            PLAY_ONE_TICK,
-                            WALK_ONE_CM,
-                            SWIM_ONE_CM,
-                            FALL_ONE_CM,
-                            SNEAK_TIME,
-                            CLIMB_ONE_CM,
-                            FLY_ONE_CM,
-                            DIVE_ONE_CM,
-                            MINECART_ONE_CM,
-                            BOAT_ONE_CM,
-                            PIG_ONE_CM,
-                            HORSE_ONE_CM,
-                            SPRINT_ONE_CM,
-                            CROUCH_ONE_CM,
-                            AVIATE_ONE_CM).forEach(statistic -> {
-                        try {
-                            PreparedStatement statement = connection.prepareStatement(
-                                    "DELETE FROM `Statistics` WHERE " +
-                                            "`server_id` = ? " +
-                                            "AND `player_id` = ?" +
-                                            "AND `statistic` = ?");
-                            statement.setString(1, serverIdentifier);
-                            statement.setBytes(2, uuid);
-                            statement.setString(3, statistic.name());
-                            statement.execute();
+                    try {
+                        PreparedStatement deletes = connection.prepareStatement(
+                                "DELETE FROM `Statistics` WHERE " +
+                                        "`server_id` = ? " +
+                                        "AND `player_id` = ?" +
+                                        "AND `statistic` = ?");
 
-                            statement = connection.prepareStatement(
-                                    "INSERT INTO `Statistics`(" +
-                                            "`server_id`, `player_id`, `statistic`, `value`) " +
-                                            "VALUES (?, ?, ?, ?)");
-                            statement.setString(1, serverIdentifier);
-                            statement.setBytes(2, uuid);
-                            statement.setString(3, statistic.name());
-                            statement.setInt(4, player.getStatistic(statistic));
+                        PreparedStatement inserts = connection.prepareStatement(
+                                "INSERT INTO `Statistics`(" +
+                                        "`server_id`, `player_id`, `statistic`, `value`) " +
+                                        "VALUES (?, ?, ?, ?)");
+
+                        Bukkit.getOnlinePlayers().forEach(player -> {
+                            UUID playerId = player.getUniqueId();
+                            byte[] uuid = new byte[16];
+                            ByteBuffer.wrap(uuid).order(ByteOrder.BIG_ENDIAN)
+                                    .putLong(playerId.getMostSignificantBits())
+                                    .putLong(playerId.getLeastSignificantBits());
+                            STATISTIC_LIST.forEach(statistic -> {
+                                try {
+                                    deletes.setString(1, serverIdentifier);
+                                    deletes.setBytes(2, uuid);
+                                    deletes.setString(3, statistic.name());
+                                    deletes.addBatch();
+
+
+                                    inserts.setString(1, serverIdentifier);
+                                    inserts.setBytes(2, uuid);
+                                    inserts.setString(3, statistic.name());
+                                    inserts.setInt(4, player.getStatistic(statistic));
+                                    inserts.addBatch();
+                                } catch (SQLException e) {
+                                    e.printStackTrace();
+                                }
+                            });
+                        });
+
+                        deletes.executeBatch();
+                        inserts.executeBatch();
+                        PreparedStatement statement;
+                        while ((statement = eventListener.statements.poll()) != null) {
                             statement.execute();
-                        } catch (SQLException e) {
-                            e.printStackTrace();
                         }
-                    });
-                }),
+                        eventListener.insertStatement.executeBatch();
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+                },
                 getConfig().getLong("server.sync_interval"),
                 getConfig().getLong("server.sync_interval"));
     }
