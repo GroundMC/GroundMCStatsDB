@@ -1,6 +1,5 @@
 package com.github.gianttreelp.statsdb;
 
-import com.google.common.collect.Queues;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerStatisticIncrementEvent;
@@ -11,12 +10,10 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.util.Queue;
 import java.util.UUID;
 
 public class EventListener implements Listener {
 
-    public Queue<PreparedStatement> statements = Queues.newConcurrentLinkedQueue();
     public PreparedStatement insertStatement;
 
     {
@@ -61,7 +58,7 @@ public class EventListener implements Listener {
             } else if (event.getEntityType() != null) {
                 statement.setString(4, event.getEntityType().name());
             }
-            statements.add(statement);
+            statement.executeUpdate();
 
             insertStatement.setString(1, serverIdentifier);
             insertStatement.setBytes(2, uuid);

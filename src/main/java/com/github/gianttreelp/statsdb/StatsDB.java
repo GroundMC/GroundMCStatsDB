@@ -110,10 +110,6 @@ public class StatsDB extends JavaPlugin {
 
                         deletes.executeBatch();
                         inserts.executeBatch();
-                        PreparedStatement statement;
-                        while ((statement = eventListener.statements.poll()) != null) {
-                            statement.execute();
-                        }
                         eventListener.insertStatement.executeBatch();
                     } catch (SQLException e) {
                         e.printStackTrace();
