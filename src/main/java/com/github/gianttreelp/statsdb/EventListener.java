@@ -11,74 +11,75 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class EventListener implements Listener {
 
-    EventListener() {
-        super();
-    }
+    private ExecutorService executorService = Executors.newCachedThreadPool();
 
     @EventHandler
     public void onStatisticIncrement(PlayerStatisticIncrementEvent event) {
+        executorService.submit(() -> {
+            Connection connection = StatsDB.getConnection();
+            String serverIdentifier = StatsDB.getConfiguration().getString("server.identifier");
+            UUID playerId = event.getPlayer().getUniqueId();
+            byte[] uuid = new byte[16];
+            ByteBuffer.wrap(uuid).order(ByteOrder.BIG_ENDIAN)
+                    .putLong(playerId.getMostSignificantBits())
+                    .putLong(playerId.getLeastSignificantBits());
+            try {
+                StringBuilder builder = new StringBuilder()
+                        .append("DELETE FROM `Statistics` WHERE ")
+                        .append("`server_id` = ? ")
+                        .append("AND `player_id` = ?")
+                        .append("AND `statistic` = ?");
 
-        Connection connection = StatsDB.getConnection();
-        String serverIdentifier = StatsDB.getConfiguration().getString("server.identifier");
-        UUID playerId = event.getPlayer().getUniqueId();
-        byte[] uuid = new byte[16];
-        ByteBuffer.wrap(uuid).order(ByteOrder.BIG_ENDIAN)
-                .putLong(playerId.getMostSignificantBits())
-                .putLong(playerId.getLeastSignificantBits());
-        try {
-            StringBuilder builder = new StringBuilder()
-                    .append("DELETE FROM `Statistics` WHERE ")
-                    .append("`server_id` = ? ")
-                    .append("AND `player_id` = ?")
-                    .append("AND `statistic` = ?");
+                if (event.getMaterial() != null) {
+                    builder.append("AND `material` = ?");
+                }
+                if (event.getEntityType() != null) {
+                    builder.append("AND `entity` = ?");
+                }
+                PreparedStatement statement = connection.prepareStatement(builder.toString());
+                statement.setString(1, serverIdentifier);
+                statement.setBytes(2, uuid);
+                statement.setString(3, event.getStatistic().name());
+                if (event.getMaterial() != null) {
+                    statement.setString(4, event.getMaterial().name());
+                } else if (event.getEntityType() != null) {
+                    statement.setString(4, event.getEntityType().name());
+                }
+                statement.execute();
 
-            if (event.getMaterial() != null) {
-                builder.append("AND `material` = ?");
-            }
-            if (event.getEntityType() != null) {
-                builder.append("AND `entity` = ?");
-            }
-            PreparedStatement statement = connection.prepareStatement(builder.toString());
-            statement.setString(1, serverIdentifier);
-            statement.setBytes(2, uuid);
-            statement.setString(3, event.getStatistic().name());
-            if (event.getMaterial() != null) {
-                statement.setString(4, event.getMaterial().name());
-            } else if (event.getEntityType() != null) {
-                statement.setString(4, event.getEntityType().name());
-            }
-            statement.execute();
+                int columns = 4;
+                builder = new StringBuilder().append("INSERT INTO `Statistics`(")
+                        .append("`server_id`, `player_id`, `statistic`, `value`");
+                if (event.getMaterial() != null) {
+                    builder.append(", `material`");
+                    columns++;
+                } else if (event.getEntityType() != null) {
+                    builder.append(", `entity`");
+                    columns++;
+                }
+                builder.append(" ) VALUES (");
+                builder.append(StringUtils.repeat("?", ", ", columns));
+                builder.append(")");
 
-            int columns = 4;
-            builder = new StringBuilder().append("INSERT INTO `Statistics`(")
-                    .append("`server_id`, `player_id`, `statistic`, `value`");
-            if (event.getMaterial() != null) {
-                builder.append(", `material`");
-                columns++;
-            } else if (event.getEntityType() != null) {
-                builder.append(", `entity`");
-                columns++;
+                statement = connection.prepareStatement(builder.toString());
+                statement.setString(1, serverIdentifier);
+                statement.setBytes(2, uuid);
+                statement.setString(3, event.getStatistic().name());
+                statement.setInt(4, event.getNewValue());
+                if (event.getMaterial() != null) {
+                    statement.setString(5, event.getMaterial().name());
+                } else if (event.getEntityType() != null) {
+                    statement.setString(5, event.getEntityType().name());
+                }
+                statement.execute();
+            } catch (SQLException e) {
+                e.printStackTrace();
             }
-            builder.append(" ) VALUES (");
-            builder.append(StringUtils.repeat("?", ", ", columns));
-            builder.append(")");
-
-            statement = connection.prepareStatement(builder.toString());
-            statement.setString(1, serverIdentifier);
-            statement.setBytes(2, uuid);
-            statement.setString(3, event.getStatistic().name());
-            statement.setInt(4, event.getNewValue());
-            if (event.getMaterial() != null) {
-                statement.setString(5, event.getMaterial().name());
-            } else if (event.getEntityType() != null) {
-                statement.setString(5, event.getEntityType().name());
-            }
-            statement.execute();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+        });
     }
 }

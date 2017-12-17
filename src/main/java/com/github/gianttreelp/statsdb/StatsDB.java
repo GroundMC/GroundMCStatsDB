@@ -48,7 +48,7 @@ public class StatsDB extends JavaPlugin {
     }
 
     private void registerTasks() {
-        Bukkit.getScheduler().scheduleSyncRepeatingTask(this,
+        Bukkit.getScheduler().runTaskTimerAsynchronously(this,
                 () -> Bukkit.getOnlinePlayers().forEach(player -> {
                     UUID playerId = player.getUniqueId();
                     byte[] uuid = new byte[16];
