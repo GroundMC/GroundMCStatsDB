@@ -7,6 +7,8 @@ import org.bukkit.event.player.PlayerStatisticIncrementEvent;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Arrays;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.UUID;
 
@@ -22,12 +24,24 @@ public class EventListener implements Listener {
                 .putLong(playerId.getMostSignificantBits())
                 .putLong(playerId.getLeastSignificantBits());
 
-        statisticsQueue.add(new StatisticsObject(
-                uuid,
-                event.getStatistic().name(),
-                event.getMaterial() != null ? event.getMaterial().name() : null,
-                event.getEntityType() != null ? event.getEntityType().name() : null,
-                event.getNewValue()
-        ));
+        Optional<StatisticsObject> statObject = statisticsQueue.stream()
+                .filter(stat ->
+                        Arrays.equals(stat.uuid, uuid) &&
+                                stat.statistic.equals(event.getStatistic().name()) &&
+                                stat.material.equals(event.getMaterial().name()) &&
+                                stat.entity.equals(event.getEntityType().name()))
+                .findFirst();
+
+        if (statObject.isPresent()) {
+            statObject.get().value = event.getNewValue();
+        } else {
+            statisticsQueue.add(new StatisticsObject(
+                    uuid,
+                    event.getStatistic().name(),
+                    event.getMaterial() != null ? event.getMaterial().name() : null,
+                    event.getEntityType() != null ? event.getEntityType().name() : null,
+                    event.getNewValue()
+            ));
+        }
     }
 }

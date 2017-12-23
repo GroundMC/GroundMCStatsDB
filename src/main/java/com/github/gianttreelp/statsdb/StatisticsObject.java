@@ -1,7 +1,7 @@
 package com.github.gianttreelp.statsdb;
 
 public final class StatisticsObject {
-    final int value;
+    int value;
     final byte[] uuid;
     final String statistic;
     final String material;

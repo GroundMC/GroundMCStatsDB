@@ -10,9 +10,12 @@ import java.sql.*;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static org.bukkit.Statistic.*;
 
+@SuppressWarnings("unused")
 public class StatsDB extends JavaPlugin {
 
     private static final List<Statistic> STATISTIC_LIST = Arrays.asList(
@@ -33,6 +36,8 @@ public class StatsDB extends JavaPlugin {
             AVIATE_ONE_CM);
     private static Connection connection;
     private EventListener eventListener;
+
+    private Lock syncLock = new ReentrantLock();
 
     @Override
     public void onEnable() {
@@ -59,119 +64,121 @@ public class StatsDB extends JavaPlugin {
     }
 
     private void registerTasks() {
-        String serverIdentifier = getConfig().getString("server.identifier");
         Bukkit.getScheduler().runTaskTimerAsynchronously(this,
-                () -> {
-                    getLogger().info("Synchronizing stats");
-                    long start = System.currentTimeMillis();
-                    try {
-                        PreparedStatement deletes = connection.prepareStatement(
-                                "DELETE FROM `Statistics` WHERE " +
-                                        "`server_id` = ? " +
-                                        "AND `player_id` = ?" +
-                                        "AND `statistic` = ?");
-
-                        PreparedStatement inserts = connection.prepareStatement(
-                                "INSERT INTO `Statistics`(" +
-                                        "`server_id`, `player_id`, `statistic`, `value`) " +
-                                        "VALUES (?, ?, ?, ?)");
-
-                        Bukkit.getOnlinePlayers().forEach(player -> {
-                            UUID playerId = player.getUniqueId();
-                            byte[] uuid = new byte[16];
-                            ByteBuffer.wrap(uuid).order(ByteOrder.BIG_ENDIAN)
-                                    .putLong(playerId.getMostSignificantBits())
-                                    .putLong(playerId.getLeastSignificantBits());
-                            STATISTIC_LIST.forEach(statistic -> {
-                                try {
-                                    deletes.setString(1, serverIdentifier);
-                                    deletes.setBytes(2, uuid);
-                                    deletes.setString(3, statistic.name());
-                                    deletes.addBatch();
-
-
-                                    inserts.setString(1, serverIdentifier);
-                                    inserts.setBytes(2, uuid);
-                                    inserts.setString(3, statistic.name());
-                                    inserts.setInt(4, player.getStatistic(statistic));
-                                    inserts.addBatch();
-                                } catch (SQLException e) {
-                                    e.printStackTrace();
-                                }
-                            });
-                        });
-
-                        deletes.executeBatch();
-                        inserts.executeBatch();
-
-                        StatisticsObject stat;
-                        while ((stat = eventListener.statisticsQueue.poll()) != null) {
-                            StringBuilder builder = new StringBuilder()
-                                    .append("DELETE FROM `Statistics` WHERE ")
-                                    .append("`server_id` = ? ")
-                                    .append("AND `player_id` = ? ")
-                                    .append("AND `statistic` = ? ");
-
-                            if (stat.material != null) {
-                                builder.append("AND `material` = ? ");
-                            }
-                            if (stat.entity != null) {
-                                builder.append("AND `entity` = ? ");
-                            }
-                            try {
-                                PreparedStatement statement = connection.prepareStatement(builder.toString());
-                                statement.setString(1, serverIdentifier);
-                                statement.setBytes(2, stat.uuid);
-                                statement.setString(3, stat.statistic);
-                                if (stat.material != null) {
-                                    statement.setString(4, stat.material);
-                                } else if (stat.entity != null) {
-                                    statement.setString(4, stat.entity);
-                                }
-                                statement.executeUpdate();
-                                statement.close();
-                            } catch (SQLException e) {
-                                e.printStackTrace();
-                            }
-
-                            try {
-                                PreparedStatement insertStatement = connection.prepareStatement("INSERT INTO `Statistics`(" +
-                                        "`server_id`, `player_id`, `statistic`, `value`, `material`, `entity`) " +
-                                        "VALUES (?, ?, ?, ?, ?, ?)");
-                                insertStatement.setString(1, serverIdentifier);
-                                insertStatement.setBytes(2, stat.uuid);
-                                insertStatement.setString(3, stat.statistic);
-                                insertStatement.setInt(4, stat.value);
-                                if (stat.material != null) {
-                                    insertStatement.setString(5, stat.material);
-                                } else {
-                                    insertStatement.setNull(5, Types.VARCHAR);
-                                }
-                                if (stat.entity != null) {
-                                    insertStatement.setString(6, stat.entity);
-                                } else {
-                                    insertStatement.setNull(6, Types.VARCHAR);
-                                }
-                                insertStatement.executeUpdate();
-                                insertStatement.close();
-                            } catch (SQLException e) {
-                                e.printStackTrace();
-                            }
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    } finally {
-                        try {
-                            connection.commit();
-                        } catch (SQLException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                    getLogger().info(String.format("Synchronized stats in %dms",
-                            System.currentTimeMillis() - start));
-                },
+                this::synchronizeStats,
                 getConfig().getLong("server.sync_interval"),
                 getConfig().getLong("server.sync_interval"));
+    }
+
+    private void synchronizeStats() {
+        if (!syncLock.tryLock()) {
+            return;
+        }
+        String serverIdentifier = getConfig().getString("server.identifier");
+        try {
+            PreparedStatement deletes = connection.prepareStatement(
+                    "DELETE FROM `Statistics` WHERE " +
+                            "`server_id` = ? " +
+                            "AND `player_id` = ?" +
+                            "AND `statistic` = ?");
+
+            PreparedStatement inserts = connection.prepareStatement(
+                    "INSERT INTO `Statistics`(" +
+                            "`server_id`, `player_id`, `statistic`, `value`) " +
+                            "VALUES (?, ?, ?, ?)");
+
+            Bukkit.getOnlinePlayers().forEach(player -> {
+                UUID playerId = player.getUniqueId();
+                byte[] uuid = new byte[16];
+                ByteBuffer.wrap(uuid).order(ByteOrder.BIG_ENDIAN)
+                        .putLong(playerId.getMostSignificantBits())
+                        .putLong(playerId.getLeastSignificantBits());
+                STATISTIC_LIST.forEach(statistic -> {
+                    try {
+                        deletes.setString(1, serverIdentifier);
+                        deletes.setBytes(2, uuid);
+                        deletes.setString(3, statistic.name());
+                        deletes.addBatch();
+
+
+                        inserts.setString(1, serverIdentifier);
+                        inserts.setBytes(2, uuid);
+                        inserts.setString(3, statistic.name());
+                        inserts.setInt(4, player.getStatistic(statistic));
+                        inserts.addBatch();
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+                });
+            });
+
+            deletes.executeBatch();
+            inserts.executeBatch();
+
+            StatisticsObject stat;
+            while ((stat = eventListener.statisticsQueue.poll()) != null) {
+                StringBuilder builder = new StringBuilder()
+                        .append("DELETE FROM `Statistics` WHERE ")
+                        .append("`server_id` = ? ")
+                        .append("AND `player_id` = ? ")
+                        .append("AND `statistic` = ? ");
+
+                if (stat.material != null) {
+                    builder.append("AND `material` = ? ");
+                }
+                if (stat.entity != null) {
+                    builder.append("AND `entity` = ? ");
+                }
+                try {
+                    PreparedStatement statement = connection.prepareStatement(builder.toString());
+                    statement.setString(1, serverIdentifier);
+                    statement.setBytes(2, stat.uuid);
+                    statement.setString(3, stat.statistic);
+                    if (stat.material != null) {
+                        statement.setString(4, stat.material);
+                    } else if (stat.entity != null) {
+                        statement.setString(4, stat.entity);
+                    }
+                    statement.executeUpdate();
+                    statement.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+
+                try {
+                    PreparedStatement insertStatement = connection.prepareStatement("INSERT INTO `Statistics`(" +
+                            "`server_id`, `player_id`, `statistic`, `value`, `material`, `entity`) " +
+                            "VALUES (?, ?, ?, ?, ?, ?)");
+                    insertStatement.setString(1, serverIdentifier);
+                    insertStatement.setBytes(2, stat.uuid);
+                    insertStatement.setString(3, stat.statistic);
+                    insertStatement.setInt(4, stat.value);
+                    if (stat.material != null) {
+                        insertStatement.setString(5, stat.material);
+                    } else {
+                        insertStatement.setNull(5, Types.VARCHAR);
+                    }
+                    if (stat.entity != null) {
+                        insertStatement.setString(6, stat.entity);
+                    } else {
+                        insertStatement.setNull(6, Types.VARCHAR);
+                    }
+                    insertStatement.executeUpdate();
+                    insertStatement.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                connection.commit();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            syncLock.unlock();
+        }
     }
 
     private void createTable() {
