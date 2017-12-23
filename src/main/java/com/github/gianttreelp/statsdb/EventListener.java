@@ -7,10 +7,7 @@ import org.bukkit.event.player.PlayerStatisticIncrementEvent;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Arrays;
-import java.util.Optional;
-import java.util.Queue;
-import java.util.UUID;
+import java.util.*;
 
 public class EventListener implements Listener {
 
@@ -27,9 +24,9 @@ public class EventListener implements Listener {
         Optional<StatisticsObject> statObject = statisticsQueue.stream()
                 .filter(stat ->
                         Arrays.equals(stat.uuid, uuid) &&
-                                stat.statistic.equals(event.getStatistic().name()) &&
-                                stat.material.equals(event.getMaterial().name()) &&
-                                stat.entity.equals(event.getEntityType().name()))
+                                Objects.equals(stat.statistic, event.getStatistic().name()) &&
+                                Objects.equals(stat.material, event.getMaterial().name()) &&
+                                Objects.equals(stat.entity, event.getEntityType().name()))
                 .findFirst();
 
         if (statObject.isPresent()) {
