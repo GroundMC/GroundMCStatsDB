@@ -24,9 +24,9 @@ public class EventListener implements Listener {
         Optional<StatisticsObject> statObject = statisticsQueue.stream()
                 .filter(stat ->
                         Arrays.equals(stat.uuid, uuid) &&
-                                Objects.equals(stat.statistic, event.getStatistic().name()) &&
-                                Objects.equals(stat.material, event.getMaterial().name()) &&
-                                Objects.equals(stat.entity, event.getEntityType().name()))
+                                event.getStatistic() != null && Objects.equals(stat.statistic, event.getStatistic().name()) &&
+                                event.getMaterial() != null && Objects.equals(stat.material, event.getMaterial().name()) &&
+                                event.getEntityType() != null && Objects.equals(stat.entity, event.getEntityType().name()))
                 .findFirst();
 
         if (statObject.isPresent()) {
