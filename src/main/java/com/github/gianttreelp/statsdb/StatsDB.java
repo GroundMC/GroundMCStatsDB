@@ -1,12 +1,17 @@
 package com.github.gianttreelp.statsdb;
 
+import org.apache.commons.dbcp2.BasicDataSource;
 import org.bukkit.Bukkit;
 import org.bukkit.Statistic;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import javax.sql.DataSource;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Types;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -34,23 +39,21 @@ public class StatsDB extends JavaPlugin {
             SPRINT_ONE_CM,
             CROUCH_ONE_CM,
             AVIATE_ONE_CM);
-    private static Connection connection;
+    private static DataSource dataSource;
     private EventListener eventListener;
-
     private Lock syncLock = new ReentrantLock();
+
+    private static Connection getConnection() throws SQLException {
+        return dataSource.getConnection();
+    }
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
-        connection = openConnection();
+        dataSource = getDataSource();
 
-        if (connection == null) {
+        if (dataSource == null) {
             getPluginLoader().disablePlugin(this);
-        }
-        try {
-            connection.setAutoCommit(false);
-        } catch (SQLException e) {
-            e.printStackTrace();
         }
 
         createTable();
@@ -76,6 +79,11 @@ public class StatsDB extends JavaPlugin {
         }
         String serverIdentifier = getConfig().getString("server.identifier");
         try {
+            Connection connection = getConnection();
+            if (connection == null) {
+                syncLock.unlock();
+                return;
+            }
             PreparedStatement deletes = connection.prepareStatement(
                     "DELETE FROM `Statistics` WHERE " +
                             "`server_id` = ? " +
@@ -168,22 +176,18 @@ public class StatsDB extends JavaPlugin {
                 } catch (SQLException e) {
                     e.printStackTrace();
                 }
+                connection.commit();
             }
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            try {
-                connection.commit();
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
             syncLock.unlock();
         }
     }
 
     private void createTable() {
         try {
-            connection.createStatement().execute("CREATE TABLE " +
+            getConnection().createStatement().execute("CREATE TABLE " +
                     "IF NOT EXISTS `Statistics`(" +
                     "`server_id` VARCHAR(255) NOT NULL ," +
                     "`player_id` BINARY(16) NOT NULL ," +
@@ -196,16 +200,12 @@ public class StatsDB extends JavaPlugin {
         }
     }
 
-    private Connection openConnection() {
-        try {
-            return connection = DriverManager.getConnection(
-                    getConfig().getString("database.url"),
-                    getConfig().getString("database.username"),
-                    getConfig().getString("database.password"));
-        } catch (SQLException e) {
-            e.printStackTrace();
-            getPluginLoader().disablePlugin(this);
-        }
-        return null;
+    private DataSource getDataSource() {
+        BasicDataSource source = new BasicDataSource();
+        source.setUrl(getConfig().getString("database.url"));
+        source.setUsername(getConfig().getString("database.username"));
+        source.setPassword(getConfig().getString("database.password"));
+        source.setDefaultAutoCommit(false);
+        return source;
     }
 }
