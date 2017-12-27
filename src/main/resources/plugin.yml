@@ -1,4 +1,4 @@
 name: StatsDB
-version: 1.0
+version: ${env.GIT_COMMIT}
 author: GiantTreeLP
 main: com.github.gianttreelp.statsdb.StatsDB
