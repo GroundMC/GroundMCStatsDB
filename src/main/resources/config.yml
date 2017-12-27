@@ -1,8 +1,8 @@
 server:
   identifier: "Server1"
-  sync_interval: 10000
+  sync_interval: 200
 
 database:
   username:
   password:
-  url:
+  url: jdbc:sqlite:plugins/StatsDB/database.db
