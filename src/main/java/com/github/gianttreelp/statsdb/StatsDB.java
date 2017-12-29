@@ -6,9 +6,6 @@ import org.bukkit.Statistic;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import javax.sql.DataSource;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.sql.Connection;
@@ -45,16 +42,6 @@ public class StatsDB extends JavaPlugin {
     private static DataSource dataSource;
     private EventListener eventListener;
     private Lock syncLock = new ReentrantLock();
-
-    private FileWriter debugWriter;
-
-    {
-        try {
-            debugWriter = new FileWriter(new File(getDataFolder(), "debug.log"));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 
     private static Connection getConnection() throws SQLException {
         return dataSource.getConnection();
@@ -129,9 +116,6 @@ public class StatsDB extends JavaPlugin {
                 });
             });
 
-            debugWriter.write(deletes.toString());
-            debugWriter.write(inserts.toString());
-
             deletes.executeBatch();
             inserts.executeBatch();
 
@@ -159,7 +143,6 @@ public class StatsDB extends JavaPlugin {
                     } else if (stat.entity != null) {
                         statement.setString(4, stat.entity);
                     }
-                    debugWriter.write(statement.toString());
                     statement.executeUpdate();
                     statement.close();
                 } catch (SQLException e) {
@@ -184,7 +167,6 @@ public class StatsDB extends JavaPlugin {
                     } else {
                         insertStatement.setNull(6, Types.VARCHAR);
                     }
-                    debugWriter.write(insertStatement.toString());
                     insertStatement.executeUpdate();
                     insertStatement.close();
                 } catch (SQLException e) {
