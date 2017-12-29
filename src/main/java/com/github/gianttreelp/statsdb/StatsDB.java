@@ -38,7 +38,8 @@ public class StatsDB extends JavaPlugin {
             HORSE_ONE_CM,
             SPRINT_ONE_CM,
             CROUCH_ONE_CM,
-            AVIATE_ONE_CM);
+            AVIATE_ONE_CM,
+            TIME_SINCE_DEATH);
     private DataSource dataSource;
     private EventListener eventListener;
     private Lock syncLock = new ReentrantLock();
