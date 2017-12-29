@@ -74,14 +74,10 @@ public class StatsDB extends JavaPlugin {
     }
 
     private void synchronizeStats() {
-        if (!syncLock.tryLock()) {
-            return;
-        }
         String serverIdentifier = getConfig().getString("server.identifier");
         try {
             Connection connection = getConnection();
-            if (connection == null) {
-                syncLock.unlock();
+            if (connection == null || !syncLock.tryLock()) {
                 return;
             }
             PreparedStatement deletes = connection.prepareStatement(
@@ -206,6 +202,7 @@ public class StatsDB extends JavaPlugin {
         source.setUsername(getConfig().getString("database.username"));
         source.setPassword(getConfig().getString("database.password"));
         source.setDefaultAutoCommit(false);
+        source.setDefaultTransactionIsolation(Connection.TRANSACTION_READ_UNCOMMITTED);
         return source;
     }
 }
