@@ -23,7 +23,7 @@ import static org.bukkit.Statistic.*;
 @SuppressWarnings("unused")
 public class StatsDB extends JavaPlugin {
 
-    private static final List<Statistic> STATISTIC_LIST = Arrays.asList(
+    protected static final List<Statistic> STATISTIC_LIST = Arrays.asList(
             PLAY_ONE_TICK,
             WALK_ONE_CM,
             SWIM_ONE_CM,
@@ -80,16 +80,13 @@ public class StatsDB extends JavaPlugin {
             if (connection == null || !syncLock.tryLock()) {
                 return;
             }
-            PreparedStatement deletes = connection.prepareStatement(
-                    "DELETE FROM `Statistics` WHERE " +
-                            "`server_id` = ? " +
+
+            PreparedStatement updates = connection.prepareStatement(
+                    "UPDATE `Statistics`" +
+                            "SET `value` = ? " +
+                            "WHERE `server_id` = ? " +
                             "AND `player_id` = ?" +
                             "AND `statistic` = ?");
-
-            PreparedStatement inserts = connection.prepareStatement(
-                    "INSERT INTO `Statistics`(" +
-                            "`server_id`, `player_id`, `statistic`, `value`) " +
-                            "VALUES (?, ?, ?, ?)");
 
             Bukkit.getOnlinePlayers().forEach(player -> {
                 UUID playerId = player.getUniqueId();
@@ -99,25 +96,18 @@ public class StatsDB extends JavaPlugin {
                         .putLong(playerId.getLeastSignificantBits());
                 STATISTIC_LIST.forEach(statistic -> {
                     try {
-                        deletes.setString(1, serverIdentifier);
-                        deletes.setBytes(2, uuid);
-                        deletes.setString(3, statistic.name());
-                        deletes.addBatch();
-
-
-                        inserts.setString(1, serverIdentifier);
-                        inserts.setBytes(2, uuid);
-                        inserts.setString(3, statistic.name());
-                        inserts.setInt(4, player.getStatistic(statistic));
-                        inserts.addBatch();
+                        updates.setInt(1, player.getStatistic(statistic));
+                        updates.setString(2, serverIdentifier);
+                        updates.setBytes(3, uuid);
+                        updates.setString(4, statistic.name());
+                        updates.addBatch();
                     } catch (SQLException e) {
                         e.printStackTrace();
                     }
                 });
             });
 
-            deletes.executeBatch();
-            inserts.executeBatch();
+            updates.executeBatch();
 
             StatisticsObject stat;
             while ((stat = eventListener.statisticsQueue.poll()) != null) {

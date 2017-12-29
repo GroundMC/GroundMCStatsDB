@@ -3,6 +3,7 @@ package com.github.gianttreelp.statsdb;
 import com.google.common.collect.Queues;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerStatisticIncrementEvent;
 
 import java.nio.ByteBuffer;
@@ -40,5 +41,21 @@ public class EventListener implements Listener {
                     event.getNewValue()
             ));
         }
+    }
+
+    @EventHandler
+    public void onJoin(PlayerJoinEvent event) {
+        UUID playerId = event.getPlayer().getUniqueId();
+        byte[] uuid = new byte[16];
+        ByteBuffer.wrap(uuid).order(ByteOrder.BIG_ENDIAN)
+                .putLong(playerId.getMostSignificantBits())
+                .putLong(playerId.getLeastSignificantBits());
+        StatsDB.STATISTIC_LIST.forEach(stat -> statisticsQueue.add(new StatisticsObject(
+                uuid,
+                stat.name(),
+                null,
+                null,
+                event.getPlayer().getStatistic(stat)
+        )));
     }
 }
