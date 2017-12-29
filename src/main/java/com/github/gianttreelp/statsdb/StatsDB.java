@@ -39,11 +39,11 @@ public class StatsDB extends JavaPlugin {
             SPRINT_ONE_CM,
             CROUCH_ONE_CM,
             AVIATE_ONE_CM);
-    private static DataSource dataSource;
+    private DataSource dataSource;
     private EventListener eventListener;
     private Lock syncLock = new ReentrantLock();
 
-    private static Connection getConnection() throws SQLException {
+    private Connection getConnection() throws SQLException {
         return dataSource.getConnection();
     }
 
@@ -140,8 +140,10 @@ public class StatsDB extends JavaPlugin {
                 }
 
                 try {
-                    PreparedStatement insertStatement = connection.prepareStatement("INSERT INTO `Statistics`(" +
-                            "`server_id`, `player_id`, `statistic`, `value`, `material`, `entity`) " +
+                    PreparedStatement insertStatement = connection.prepareStatement(
+                            "INSERT INTO `Statistics`(" +
+                                    "`server_id`, `player_id`, `statistic`, " +
+                                    "`value`, `material`, `entity`) " +
                             "VALUES (?, ?, ?, ?, ?, ?)");
                     insertStatement.setString(1, serverIdentifier);
                     insertStatement.setBytes(2, stat.uuid);
