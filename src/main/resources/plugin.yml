@@ -7,7 +7,7 @@ commands:
   statsdb:
     description: StatsDB
     permission: statsdb.admin
-    usage: /<command>
+    usage: /<command> <statistic> [material|entity|player]
 
 permissions:
   statsdb.admin:

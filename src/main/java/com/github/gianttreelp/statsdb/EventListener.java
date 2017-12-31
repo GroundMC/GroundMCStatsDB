@@ -6,9 +6,10 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerStatisticIncrementEvent;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Queue;
 
 public class EventListener implements Listener {
 
@@ -16,11 +17,7 @@ public class EventListener implements Listener {
 
     @EventHandler
     public void onStatisticIncrement(PlayerStatisticIncrementEvent event) {
-        UUID playerId = event.getPlayer().getUniqueId();
-        byte[] uuid = new byte[16];
-        ByteBuffer.wrap(uuid).order(ByteOrder.BIG_ENDIAN)
-                .putLong(playerId.getMostSignificantBits())
-                .putLong(playerId.getLeastSignificantBits());
+        byte[] uuid = StatsDB.getBytesFromUUID(event.getPlayer());
 
         Optional<StatisticsObject> statObject = statisticsQueue.stream()
                 .filter(stat ->
@@ -45,11 +42,7 @@ public class EventListener implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        UUID playerId = event.getPlayer().getUniqueId();
-        byte[] uuid = new byte[16];
-        ByteBuffer.wrap(uuid).order(ByteOrder.BIG_ENDIAN)
-                .putLong(playerId.getMostSignificantBits())
-                .putLong(playerId.getLeastSignificantBits());
+        byte[] uuid = StatsDB.getBytesFromUUID(event.getPlayer());
         StatsDB.STATISTIC_LIST.forEach(stat -> statisticsQueue.add(new StatisticsObject(
                 uuid,
                 stat.name(),

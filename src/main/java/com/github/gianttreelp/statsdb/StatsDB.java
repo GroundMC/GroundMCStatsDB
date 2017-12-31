@@ -2,24 +2,24 @@ package com.github.gianttreelp.statsdb;
 
 import org.apache.commons.dbcp2.BasicDataSource;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.Statistic;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
-import org.bukkit.command.CommandSender;
+import org.bukkit.command.*;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import javax.sql.DataSource;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.sql.Types;
+import java.sql.*;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
 import static org.bukkit.Statistic.*;
 
@@ -47,6 +47,15 @@ public class StatsDB extends JavaPlugin {
     private EventListener eventListener;
     private Lock syncLock = new ReentrantLock();
 
+    static byte[] getBytesFromUUID(OfflinePlayer player) {
+        UUID playerId = player.getUniqueId();
+        byte[] uuid = new byte[16];
+        ByteBuffer.wrap(uuid).order(ByteOrder.BIG_ENDIAN)
+                .putLong(playerId.getMostSignificantBits())
+                .putLong(playerId.getLeastSignificantBits());
+        return uuid;
+    }
+
     private Connection getConnection() throws SQLException {
         return dataSource.getConnection();
     }
@@ -67,7 +76,10 @@ public class StatsDB extends JavaPlugin {
     }
 
     private void registerCommand() {
-        getCommand("statsdb").setExecutor(new StatsDBCommand());
+        PluginCommand command = getCommand("statsdb");
+        StatsDBCommand dbCommand = new StatsDBCommand();
+        command.setExecutor(dbCommand);
+        command.setTabCompleter(dbCommand);
     }
 
     private void registerEventListener() {
@@ -173,8 +185,9 @@ public class StatsDB extends JavaPlugin {
                 } catch (SQLException e) {
                     e.printStackTrace();
                 }
-                connection.commit();
             }
+            connection.commit();
+            connection.close();
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
@@ -208,14 +221,192 @@ public class StatsDB extends JavaPlugin {
         return source;
     }
 
-    private class StatsDBCommand implements CommandExecutor {
+    private class StatsDBCommand implements CommandExecutor, TabCompleter {
         @Override
         public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+            Bukkit.getServer().getScheduler().runTaskAsynchronously(StatsDB.this, () -> {
+                switch (args.length) {
+                    case 0:
+                        version(sender);
+                        break;
+                    case 1:
+                        selfStatistic(sender, args);
+                        break;
+                    case 2:
+                        subStatisticOrPlayerStatistic(sender, args);
+                        break;
+                    case 3:
+                        playerSubstatistic(sender, args);
+                        break;
+                }
+            });
+            return true;
+        }
+
+        private void playerSubstatistic(CommandSender sender, String[] args) {
+            try {
+                Statistic stat = Statistic.valueOf(args[0]);
+                StringBuilder builder = new StringBuilder(
+                        "SELECT SUM(`value`) FROM `Statistics` " +
+                                "WHERE `player_id` = ? " +
+                                "AND `statistic` = ? ");
+                Connection connection = getConnection();
+                if (sender instanceof Player) {
+                    //noinspection deprecation
+                    OfflinePlayer player = Bukkit.getOfflinePlayer(args[2]);
+
+                    appendSubstatisticSQL(stat, builder);
+
+                    PreparedStatement statement = connection.prepareStatement(
+                            builder.toString());
+                    statement.setBytes(1, getBytesFromUUID(player));
+                    statement.setString(2, stat.name());
+                    statement.setString(3, args[1]);
+                    ResultSet result = statement.executeQuery();
+                    sender.sendMessage(stat.name() + ": " + result.getString(1));
+                    result.close();
+                    statement.close();
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+
+        private void subStatisticOrPlayerStatistic(CommandSender sender, String[] args) {
+            try {
+                Statistic stat = Statistic.valueOf(args[0]);
+                StringBuilder builder = new StringBuilder(
+                        "SELECT SUM(`value`) FROM `Statistics` " +
+                                "WHERE `player_id` = ? " +
+                                "AND `statistic` = ? ");
+                Connection connection = getConnection();
+                if (stat.isSubstatistic()) {
+                    if (sender instanceof Player) {
+                        Player player = (Player) sender;
+
+                        appendSubstatisticSQL(stat, builder);
+
+                        PreparedStatement statement = connection.prepareStatement(
+                                builder.toString());
+                        statement.setBytes(1, getBytesFromUUID(player));
+                        statement.setString(2, stat.name());
+                        statement.setString(3, args[1]);
+                        ResultSet result = statement.executeQuery();
+                        sender.sendMessage(stat.name() + ": " + result.getString(1));
+                        result.close();
+                        statement.close();
+                    }
+                } else {
+                    //noinspection deprecation
+                    OfflinePlayer player = Bukkit.getOfflinePlayer(args[1]);
+                    PreparedStatement statement = connection.prepareStatement(
+                            builder.toString());
+                    statement.setBytes(1, getBytesFromUUID(player));
+                    statement.setString(2, stat.name());
+                    ResultSet result = statement.executeQuery();
+                    sender.sendMessage(stat.name() + ": " + result.getString(1));
+                    result.close();
+                    statement.close();
+                }
+                connection.close();
+            } catch (IllegalArgumentException e) {
+                sender.sendMessage("Unrecognized statistic");
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+
+        private void appendSubstatisticSQL(Statistic stat, StringBuilder builder) {
+            switch (stat.getType()) {
+                case ITEM:
+                case BLOCK:
+                    builder.append("AND `material` = ?");
+                    break;
+                case ENTITY:
+                    builder.append("AND `entity` = ?");
+                    break;
+            }
+        }
+
+        private void selfStatistic(CommandSender sender, String[] args) {
+            try {
+                Statistic stat = Statistic.valueOf(args[0]);
+                if (sender instanceof Player) {
+                    Player player = (Player) sender;
+                    Connection connection = getConnection();
+                    PreparedStatement statement = connection.prepareStatement(
+                            "SELECT SUM(`value`) FROM `Statistics` " +
+                                    "WHERE `player_id` = ?" +
+                                    "AND `statistic` = ?"
+                    );
+                    statement.setBytes(1, getBytesFromUUID(player));
+                    statement.setString(2, stat.name());
+                    ResultSet result = statement.executeQuery();
+                    sender.sendMessage(stat.name() + ": " + result.getString(1));
+                    result.close();
+                    statement.close();
+                    connection.close();
+                }
+            } catch (IllegalArgumentException e) {
+                sender.sendMessage("Unrecognized statistic");
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+
+        private void version(CommandSender sender) {
             if (sender.hasPermission(Bukkit.getPluginManager().getPermission("statsdb.admin"))) {
                 sender.sendMessage("Running StatsDB commit " + getDescription().getVersion());
             }
+        }
 
-            return true;
+        @Override
+        public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+            switch (args.length) {
+                case 1:
+                    return List.of(Statistic.values())
+                            .stream()
+                            .map(Enum::name)
+                            .filter(name -> name.startsWith(args[0]))
+                            .collect(Collectors.toList());
+                case 2:
+                    Type statType = Statistic.valueOf(args[0]).getType();
+                    switch (statType) {
+                        case UNTYPED:
+                            return Bukkit.getOnlinePlayers()
+                                    .stream()
+                                    .map(Player::getDisplayName)
+                                    .filter(name -> name.startsWith(args[1]))
+                                    .collect(Collectors.toList());
+                        case BLOCK:
+                            return List.of(Material.values())
+                                    .stream()
+                                    .filter(Material::isBlock)
+                                    .map(Enum::name)
+                                    .filter(name -> name.startsWith(args[1]))
+                                    .collect(Collectors.toList());
+                        case ITEM:
+                            return List.of(Material.values())
+                                    .stream()
+                                    .filter(material -> !material.isBlock())
+                                    .map(Enum::name)
+                                    .filter(name -> name.startsWith(args[1]))
+                                    .collect(Collectors.toList());
+                        case ENTITY:
+                            return List.of(EntityType.values())
+                                    .stream()
+                                    .map(Enum::name)
+                                    .filter(name -> name.startsWith(args[1]))
+                                    .collect(Collectors.toList());
+                    }
+                case 3:
+                    return Bukkit.getOnlinePlayers()
+                            .stream()
+                            .map(Player::getDisplayName)
+                            .filter(name -> name.startsWith(args[2]))
+                            .collect(Collectors.toList());
+            }
+            return null;
         }
     }
 }
