@@ -3,6 +3,9 @@ package com.github.gianttreelp.statsdb;
 import org.apache.commons.dbcp2.BasicDataSource;
 import org.bukkit.Bukkit;
 import org.bukkit.Statistic;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import javax.sql.DataSource;
@@ -60,6 +63,11 @@ public class StatsDB extends JavaPlugin {
         createTable();
         registerTasks();
         registerEventListener();
+        registerCommand();
+    }
+
+    private void registerCommand() {
+        getCommand("statsdb").setExecutor(new StatsDBCommand());
     }
 
     private void registerEventListener() {
@@ -197,5 +205,16 @@ public class StatsDB extends JavaPlugin {
         source.setDefaultAutoCommit(false);
         source.setDefaultTransactionIsolation(Connection.TRANSACTION_READ_UNCOMMITTED);
         return source;
+    }
+
+    private class StatsDBCommand implements CommandExecutor {
+        @Override
+        public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+            if (sender.hasPermission(Bukkit.getPluginManager().getPermission("statsdb.admin"))) {
+                sender.sendMessage("Running StatsDB commit " + getDescription().getVersion());
+            }
+
+            return true;
+        }
     }
 }

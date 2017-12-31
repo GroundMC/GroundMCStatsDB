@@ -2,3 +2,14 @@ name: StatsDB
 version: ${env.GIT_COMMIT}
 author: GiantTreeLP
 main: com.github.gianttreelp.statsdb.StatsDB
+
+commands:
+  statsdb:
+    description: StatsDB
+    permission: statsdb.admin
+    usage: /<command>
+
+permissions:
+  statsdb.admin:
+    description: Grants administrative access to this plugin
+    default: op
