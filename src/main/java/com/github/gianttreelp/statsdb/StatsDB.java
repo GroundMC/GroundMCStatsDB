@@ -113,10 +113,10 @@ public class StatsDB extends JavaPlugin {
             StatisticsObject stat;
             while ((stat = eventListener.statisticsQueue.poll()) != null) {
                 StringBuilder builder = new StringBuilder()
-                        .append("DELETE FROM `Statistics` WHERE ")
-                        .append("`server_id` = ? ")
-                        .append("AND `player_id` = ? ")
-                        .append("AND `statistic` = ? ");
+                        .append("DELETE FROM `Statistics` WHERE " +
+                                "`server_id` = ? " +
+                                "AND `player_id` = ? " +
+                                "AND `statistic` = ? ");
 
                 if (stat.material != null) {
                     builder.append("AND `material` = ? ");
@@ -145,7 +145,7 @@ public class StatsDB extends JavaPlugin {
                             "INSERT INTO `Statistics`(" +
                                     "`server_id`, `player_id`, `statistic`, " +
                                     "`value`, `material`, `entity`) " +
-                            "VALUES (?, ?, ?, ?, ?, ?)");
+                                    "VALUES (?, ?, ?, ?, ?, ?)");
                     insertStatement.setString(1, serverIdentifier);
                     insertStatement.setBytes(2, stat.uuid);
                     insertStatement.setString(3, stat.statistic);
