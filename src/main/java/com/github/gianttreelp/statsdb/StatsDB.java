@@ -204,6 +204,7 @@ public class StatsDB extends JavaPlugin {
         source.setPassword(getConfig().getString("database.password"));
         source.setDefaultAutoCommit(false);
         source.setDefaultTransactionIsolation(Connection.TRANSACTION_READ_UNCOMMITTED);
+        source.addConnectionProperty("journal_mode", "wal");
         return source;
     }
 
