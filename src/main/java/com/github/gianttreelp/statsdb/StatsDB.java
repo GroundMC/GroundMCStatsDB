@@ -75,6 +75,11 @@ public class StatsDB extends JavaPlugin {
         registerCommand();
     }
 
+    @Override
+    public void onDisable() {
+        synchronizeStats();
+    }
+
     private void registerCommand() {
         PluginCommand command = getCommand("statsdb");
         StatsDBCommand dbCommand = new StatsDBCommand();
