@@ -257,7 +257,9 @@ public class StatsDB extends JavaPlugin {
                     statement.setString(2, stat.name());
                     statement.setString(3, args[1]);
                     ResultSet result = statement.executeQuery();
-                    sender.sendMessage(stat.name() + ": " + result.getString(1));
+                    if (result.next()) {
+                        sender.sendMessage(stat.name() + ": " + result.getString(1));
+                    }
                     result.close();
                     statement.close();
                 }
@@ -286,7 +288,9 @@ public class StatsDB extends JavaPlugin {
                         statement.setString(2, stat.name());
                         statement.setString(3, args[1]);
                         ResultSet result = statement.executeQuery();
-                        sender.sendMessage(stat.name() + ": " + result.getString(1));
+                        if (result.next()) {
+                            sender.sendMessage(stat.name() + ": " + result.getString(1));
+                        }
                         result.close();
                         statement.close();
                     }
@@ -298,7 +302,9 @@ public class StatsDB extends JavaPlugin {
                     statement.setBytes(1, getBytesFromUUID(player));
                     statement.setString(2, stat.name());
                     ResultSet result = statement.executeQuery();
-                    sender.sendMessage(stat.name() + ": " + result.getString(1));
+                    if (result.next()) {
+                        sender.sendMessage(stat.name() + ": " + result.getString(1));
+                    }
                     result.close();
                     statement.close();
                 }
@@ -336,7 +342,9 @@ public class StatsDB extends JavaPlugin {
                     statement.setBytes(1, getBytesFromUUID(player));
                     statement.setString(2, stat.name());
                     ResultSet result = statement.executeQuery();
-                    sender.sendMessage(stat.name() + ": " + result.getString(1));
+                    if (result.next()) {
+                        sender.sendMessage(stat.name() + ": " + result.getString(1));
+                    }
                     result.close();
                     statement.close();
                     connection.close();
