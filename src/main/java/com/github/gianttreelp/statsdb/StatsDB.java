@@ -43,7 +43,7 @@ public class StatsDB extends JavaPlugin {
             CROUCH_ONE_CM,
             AVIATE_ONE_CM,
             TIME_SINCE_DEATH);
-    private DataSource dataSource;
+    private static DataSource dataSource;
     private EventListener eventListener;
     private Lock syncLock = new ReentrantLock();
 
@@ -56,7 +56,7 @@ public class StatsDB extends JavaPlugin {
         return uuid;
     }
 
-    private Connection getConnection() throws SQLException {
+    static Connection getConnection() throws SQLException {
         return dataSource.getConnection();
     }
 
@@ -95,7 +95,6 @@ public class StatsDB extends JavaPlugin {
     }
 
     private void synchronizeStats() {
-        String serverIdentifier = getConfig().getString("server.identifier");
         try {
             Connection connection = getConnection();
             if (connection == null || !syncLock.tryLock()) {
@@ -105,22 +104,16 @@ public class StatsDB extends JavaPlugin {
             PreparedStatement updates = connection.prepareStatement(
                     "UPDATE `Statistics`" +
                             "SET `value` = ? " +
-                            "WHERE `server_id` = ? " +
-                            "AND `player_id` = ?" +
+                            "WHERE `player_id` = ?" +
                             "AND `statistic` = ?");
 
             Bukkit.getOnlinePlayers().forEach(player -> {
-                UUID playerId = player.getUniqueId();
-                byte[] uuid = new byte[16];
-                ByteBuffer.wrap(uuid).order(ByteOrder.BIG_ENDIAN)
-                        .putLong(playerId.getMostSignificantBits())
-                        .putLong(playerId.getLeastSignificantBits());
+                byte[] uuid = getBytesFromUUID(player);
                 STATISTIC_LIST.forEach(statistic -> {
                     try {
                         updates.setInt(1, player.getStatistic(statistic));
-                        updates.setString(2, serverIdentifier);
-                        updates.setBytes(3, uuid);
-                        updates.setString(4, statistic.name());
+                        updates.setBytes(2, uuid);
+                        updates.setString(3, statistic.name());
                         updates.addBatch();
                     } catch (SQLException e) {
                         e.printStackTrace();
@@ -134,8 +127,7 @@ public class StatsDB extends JavaPlugin {
             while ((stat = eventListener.statisticsQueue.poll()) != null) {
                 StringBuilder builder = new StringBuilder()
                         .append("DELETE FROM `Statistics` WHERE " +
-                                "`server_id` = ? " +
-                                "AND `player_id` = ? " +
+                                "`player_id` = ? " +
                                 "AND `statistic` = ? ");
 
                 if (stat.material != null) {
@@ -146,13 +138,12 @@ public class StatsDB extends JavaPlugin {
                 }
                 try {
                     PreparedStatement statement = connection.prepareStatement(builder.toString());
-                    statement.setString(1, serverIdentifier);
-                    statement.setBytes(2, stat.uuid);
-                    statement.setString(3, stat.statistic);
+                    statement.setBytes(1, stat.uuid);
+                    statement.setString(2, stat.statistic);
                     if (stat.material != null) {
-                        statement.setString(4, stat.material);
+                        statement.setString(3, stat.material);
                     } else if (stat.entity != null) {
-                        statement.setString(4, stat.entity);
+                        statement.setString(3, stat.entity);
                     }
                     statement.executeUpdate();
                     statement.close();
@@ -163,22 +154,21 @@ public class StatsDB extends JavaPlugin {
                 try {
                     PreparedStatement insertStatement = connection.prepareStatement(
                             "INSERT INTO `Statistics`(" +
-                                    "`server_id`, `player_id`, `statistic`, " +
+                                    "`player_id`, `statistic`, " +
                                     "`value`, `material`, `entity`) " +
-                                    "VALUES (?, ?, ?, ?, ?, ?)");
-                    insertStatement.setString(1, serverIdentifier);
-                    insertStatement.setBytes(2, stat.uuid);
-                    insertStatement.setString(3, stat.statistic);
-                    insertStatement.setInt(4, stat.value);
+                                    "VALUES (?, ?, ?, ?, ?)");
+                    insertStatement.setBytes(1, stat.uuid);
+                    insertStatement.setString(2, stat.statistic);
+                    insertStatement.setInt(3, stat.value);
                     if (stat.material != null) {
-                        insertStatement.setString(5, stat.material);
+                        insertStatement.setString(4, stat.material);
                     } else {
-                        insertStatement.setNull(5, Types.VARCHAR);
+                        insertStatement.setNull(4, Types.VARCHAR);
                     }
                     if (stat.entity != null) {
-                        insertStatement.setString(6, stat.entity);
+                        insertStatement.setString(5, stat.entity);
                     } else {
-                        insertStatement.setNull(6, Types.VARCHAR);
+                        insertStatement.setNull(5, Types.VARCHAR);
                     }
                     insertStatement.executeUpdate();
                     insertStatement.close();
@@ -199,7 +189,6 @@ public class StatsDB extends JavaPlugin {
         try {
             getConnection().createStatement().execute("CREATE TABLE " +
                     "IF NOT EXISTS `Statistics`(" +
-                    "`server_id` VARCHAR(255) NOT NULL ," +
                     "`player_id` BINARY(16) NOT NULL ," +
                     "`statistic` VARCHAR(255) NOT NULL ," +
                     "`material` VARCHAR(255)," +
@@ -224,7 +213,7 @@ public class StatsDB extends JavaPlugin {
     private class StatsDBCommand implements CommandExecutor, TabCompleter {
         @Override
         public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-            Bukkit.getServer().getScheduler().runTaskAsynchronously(StatsDB.this, () -> {
+            Bukkit.getScheduler().runTaskAsynchronously(StatsDB.this, () -> {
                 switch (args.length) {
                     case 0:
                         version(sender);
@@ -247,7 +236,7 @@ public class StatsDB extends JavaPlugin {
             try {
                 Statistic stat = Statistic.valueOf(args[0]);
                 StringBuilder builder = new StringBuilder(
-                        "SELECT SUM(`value`) FROM `Statistics` " +
+                        "SELECT `value` FROM `Statistics` " +
                                 "WHERE `player_id` = ? " +
                                 "AND `statistic` = ? ");
                 Connection connection = getConnection();
@@ -276,7 +265,7 @@ public class StatsDB extends JavaPlugin {
             try {
                 Statistic stat = Statistic.valueOf(args[0]);
                 StringBuilder builder = new StringBuilder(
-                        "SELECT SUM(`value`) FROM `Statistics` " +
+                        "SELECT `value` FROM `Statistics` " +
                                 "WHERE `player_id` = ? " +
                                 "AND `statistic` = ? ");
                 Connection connection = getConnection();
@@ -335,7 +324,7 @@ public class StatsDB extends JavaPlugin {
                     Player player = (Player) sender;
                     Connection connection = getConnection();
                     PreparedStatement statement = connection.prepareStatement(
-                            "SELECT SUM(`value`) FROM `Statistics` " +
+                            "SELECT `value` FROM `Statistics` " +
                                     "WHERE `player_id` = ?" +
                                     "AND `statistic` = ?"
                     );
