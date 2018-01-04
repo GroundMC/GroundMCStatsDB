@@ -366,8 +366,7 @@ public class StatsDB extends JavaPlugin {
         public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
             switch (args.length) {
                 case 1:
-                    return List.of(Statistic.values())
-                            .stream()
+                    return Arrays.stream(Statistic.values())
                             .map(Enum::name)
                             .filter(name -> name.startsWith(args[0]))
                             .collect(Collectors.toList());
@@ -381,22 +380,19 @@ public class StatsDB extends JavaPlugin {
                                     .filter(name -> name.startsWith(args[1]))
                                     .collect(Collectors.toList());
                         case BLOCK:
-                            return List.of(Material.values())
-                                    .stream()
+                            return Arrays.stream(Material.values())
                                     .filter(Material::isBlock)
                                     .map(Enum::name)
                                     .filter(name -> name.startsWith(args[1]))
                                     .collect(Collectors.toList());
                         case ITEM:
-                            return List.of(Material.values())
-                                    .stream()
+                            return Arrays.stream(Material.values())
                                     .filter(material -> !material.isBlock())
                                     .map(Enum::name)
                                     .filter(name -> name.startsWith(args[1]))
                                     .collect(Collectors.toList());
                         case ENTITY:
-                            return List.of(EntityType.values())
-                                    .stream()
+                            return Arrays.stream(EntityType.values())
                                     .map(Enum::name)
                                     .filter(name -> name.startsWith(args[1]))
                                     .collect(Collectors.toList());
