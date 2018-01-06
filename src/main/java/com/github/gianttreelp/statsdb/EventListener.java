@@ -76,6 +76,8 @@ public class EventListener implements Listener {
                         break;
                 }
             }
+            rs.close();
+            connection.close();
         } catch (SQLException e) {
             e.printStackTrace();
         }

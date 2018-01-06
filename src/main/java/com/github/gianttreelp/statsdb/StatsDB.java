@@ -13,9 +13,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 import javax.sql.DataSource;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -49,11 +51,9 @@ public class StatsDB extends JavaPlugin {
 
     static byte[] getBytesFromUUID(OfflinePlayer player) {
         UUID playerId = player.getUniqueId();
-        byte[] uuid = new byte[16];
-        ByteBuffer.wrap(uuid).order(ByteOrder.BIG_ENDIAN)
+        return ByteBuffer.wrap(new byte[16]).order(ByteOrder.BIG_ENDIAN)
                 .putLong(playerId.getMostSignificantBits())
-                .putLong(playerId.getLeastSignificantBits());
-        return uuid;
+                .putLong(playerId.getLeastSignificantBits()).array();
     }
 
     static Connection getConnection() throws SQLException {
@@ -66,6 +66,9 @@ public class StatsDB extends JavaPlugin {
         dataSource = getDataSource();
 
         if (dataSource == null) {
+            getLogger().severe("Can't connect to SQL Server, please " +
+                    "verify your configuration.");
+            getLogger().severe("Disabling...");
             getPluginLoader().disablePlugin(this);
         }
 
@@ -216,6 +219,23 @@ public class StatsDB extends JavaPlugin {
     }
 
     private class StatsDBCommand implements CommandExecutor, TabCompleter {
+
+        private boolean startsWithIgnoreCase(String candidate, String prefix) {
+            byte[] cBytes = candidate.toLowerCase(Locale.ROOT)
+                    .getBytes(StandardCharsets.UTF_8);
+            byte[] pBytes = prefix.toLowerCase(Locale.ROOT).
+                    getBytes(StandardCharsets.UTF_8);
+            int co = 0;
+            int po = 0;
+            int pc = pBytes.length;
+            while (po < pc) {
+                if (cBytes[co++] != pBytes[po++]) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         @Override
         public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
             Bukkit.getScheduler().runTaskAsynchronously(StatsDB.this, () -> {
@@ -256,16 +276,20 @@ public class StatsDB extends JavaPlugin {
                     statement.setBytes(1, getBytesFromUUID(player));
                     statement.setString(2, stat.name());
                     statement.setString(3, args[1]);
-                    ResultSet result = statement.executeQuery();
-                    if (result.next()) {
-                        sender.sendMessage(stat.name() + ": " + result.getString(1));
-                    }
-                    result.close();
-                    statement.close();
+                    executeSendAndClose(sender, stat, statement);
                 }
             } catch (SQLException e) {
                 e.printStackTrace();
             }
+        }
+
+        private void executeSendAndClose(CommandSender sender, Statistic stat, PreparedStatement statement) throws SQLException {
+            ResultSet result = statement.executeQuery();
+            if (result.next()) {
+                sender.sendMessage(stat.name() + ": " + result.getString(1));
+            }
+            result.close();
+            statement.close();
         }
 
         private void subStatisticOrPlayerStatistic(CommandSender sender, String[] args) {
@@ -287,12 +311,7 @@ public class StatsDB extends JavaPlugin {
                         statement.setBytes(1, getBytesFromUUID(player));
                         statement.setString(2, stat.name());
                         statement.setString(3, args[1]);
-                        ResultSet result = statement.executeQuery();
-                        if (result.next()) {
-                            sender.sendMessage(stat.name() + ": " + result.getString(1));
-                        }
-                        result.close();
-                        statement.close();
+                        executeSendAndClose(sender, stat, statement);
                     }
                 } else {
                     //noinspection deprecation
@@ -304,6 +323,8 @@ public class StatsDB extends JavaPlugin {
                     ResultSet result = statement.executeQuery();
                     if (result.next()) {
                         sender.sendMessage(stat.name() + ": " + result.getString(1));
+                    } else {
+                        sender.sendMessage("Statistic not recorded yet.");
                     }
                     result.close();
                     statement.close();
@@ -341,12 +362,7 @@ public class StatsDB extends JavaPlugin {
                     );
                     statement.setBytes(1, getBytesFromUUID(player));
                     statement.setString(2, stat.name());
-                    ResultSet result = statement.executeQuery();
-                    if (result.next()) {
-                        sender.sendMessage(stat.name() + ": " + result.getString(1));
-                    }
-                    result.close();
-                    statement.close();
+                    executeSendAndClose(sender, stat, statement);
                     connection.close();
                 }
             } catch (IllegalArgumentException e) {
@@ -368,7 +384,7 @@ public class StatsDB extends JavaPlugin {
                 case 1:
                     return Arrays.stream(Statistic.values())
                             .map(Enum::name)
-                            .filter(name -> name.startsWith(args[0]))
+                            .filter(name -> startsWithIgnoreCase(name, args[0]))
                             .collect(Collectors.toList());
                 case 2:
                     Type statType = Statistic.valueOf(args[0]).getType();
@@ -377,31 +393,31 @@ public class StatsDB extends JavaPlugin {
                             return Bukkit.getOnlinePlayers()
                                     .stream()
                                     .map(Player::getDisplayName)
-                                    .filter(name -> name.startsWith(args[1]))
+                                    .filter(name -> startsWithIgnoreCase(name, args[1]))
                                     .collect(Collectors.toList());
                         case BLOCK:
                             return Arrays.stream(Material.values())
                                     .filter(Material::isBlock)
                                     .map(Enum::name)
-                                    .filter(name -> name.startsWith(args[1]))
+                                    .filter(name -> startsWithIgnoreCase(name, args[1]))
                                     .collect(Collectors.toList());
                         case ITEM:
                             return Arrays.stream(Material.values())
                                     .filter(material -> !material.isBlock())
                                     .map(Enum::name)
-                                    .filter(name -> name.startsWith(args[1]))
+                                    .filter(name -> startsWithIgnoreCase(name, args[1]))
                                     .collect(Collectors.toList());
                         case ENTITY:
                             return Arrays.stream(EntityType.values())
                                     .map(Enum::name)
-                                    .filter(name -> name.startsWith(args[1]))
+                                    .filter(name -> startsWithIgnoreCase(name, args[1]))
                                     .collect(Collectors.toList());
                     }
                 case 3:
                     return Bukkit.getOnlinePlayers()
                             .stream()
-                            .map(Player::getDisplayName)
-                            .filter(name -> name.startsWith(args[2]))
+                            .map(Player::getName)
+                            .filter(name -> startsWithIgnoreCase(name, args[2]))
                             .collect(Collectors.toList());
             }
             return null;
