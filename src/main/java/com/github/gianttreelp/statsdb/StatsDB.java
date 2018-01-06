@@ -13,7 +13,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 import javax.sql.DataSource;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.Arrays;
 import java.util.List;
@@ -221,19 +220,7 @@ public class StatsDB extends JavaPlugin {
     private class StatsDBCommand implements CommandExecutor, TabCompleter {
 
         private boolean startsWithIgnoreCase(String candidate, String prefix) {
-            byte[] cBytes = candidate.toLowerCase(Locale.ROOT)
-                    .getBytes(StandardCharsets.UTF_8);
-            byte[] pBytes = prefix.toLowerCase(Locale.ROOT).
-                    getBytes(StandardCharsets.UTF_8);
-            int co = 0;
-            int po = 0;
-            int pc = pBytes.length;
-            while (po < pc) {
-                if (cBytes[co++] != pBytes[po++]) {
-                    return false;
-                }
-            }
-            return true;
+            return candidate.toLowerCase(Locale.ROOT).startsWith(prefix.toLowerCase(Locale.ROOT));
         }
 
         @Override
