@@ -101,8 +101,12 @@ public class StatsDB extends JavaPlugin {
 
     private void synchronizeStats() {
         try {
+            if (!syncLock.tryLock()) {
+                return;
+            }
+
             Connection connection = getConnection();
-            if (connection == null || !syncLock.tryLock()) {
+            if (connection == null) {
                 return;
             }
 
