@@ -1,6 +1,6 @@
 package com.github.gianttreelp.statsdb;
 
-import org.apache.commons.dbcp2.BasicDataSource;
+import com.zaxxer.hikari.HikariDataSource;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.Statistic;
@@ -209,13 +209,13 @@ public class StatsDB extends JavaPlugin {
     }
 
     private DataSource getDataSource() {
-        BasicDataSource source = new BasicDataSource();
-        source.setUrl(getConfig().getString("database.url"));
+        HikariDataSource source = new HikariDataSource();
+        source.setJdbcUrl(getConfig().getString("database.url"));
         source.setUsername(getConfig().getString("database.username"));
         source.setPassword(getConfig().getString("database.password"));
-        source.setDefaultAutoCommit(false);
-        source.setDefaultTransactionIsolation(Connection.TRANSACTION_READ_UNCOMMITTED);
-        source.addConnectionProperty("journal_mode", "wal");
+        source.setAutoCommit(false);
+        source.setTransactionIsolation("TRANSACTION_READ_UNCOMMITTED");
+        source.addDataSourceProperty("journal_mode", "wal");
         return source;
     }
 }
