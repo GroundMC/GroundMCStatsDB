@@ -21,7 +21,7 @@ import java.util.Queue;
 
 public class EventListener implements Listener {
 
-    protected Queue<StatisticsObject> statisticsQueue = Queues.newConcurrentLinkedQueue();
+    Queue<StatisticsObject> statisticsQueue = Queues.newConcurrentLinkedQueue();
 
     @EventHandler
     public void onStatisticIncrement(PlayerStatisticIncrementEvent event) {

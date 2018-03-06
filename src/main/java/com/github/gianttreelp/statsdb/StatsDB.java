@@ -25,7 +25,7 @@ import static org.bukkit.Statistic.*;
 @SuppressWarnings("unused")
 public class StatsDB extends JavaPlugin {
 
-    protected static final List<Statistic> STATISTIC_LIST = Arrays.asList(
+    static final List<Statistic> STATISTIC_LIST = Arrays.asList(
             PLAY_ONE_TICK,
             WALK_ONE_CM,
             SWIM_ONE_CM,
