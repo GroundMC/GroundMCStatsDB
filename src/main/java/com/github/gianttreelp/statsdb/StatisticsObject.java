@@ -1,13 +1,17 @@
 package com.github.gianttreelp.statsdb;
 
-public final class StatisticsObject {
-    int value;
+import org.bukkit.Statistic;
+
+final class StatisticsObject {
     final byte[] uuid;
-    final String statistic;
+    final Statistic statistic;
     final String material;
     final String entity;
+    int value;
 
-    StatisticsObject(final byte[] uuid, final String statistic, final String material, final String entity, final int value) {
+    StatisticsObject(final byte[] uuid, final Statistic statistic, final
+    String
+            material, final String entity, final int value) {
         this.uuid = uuid;
         this.statistic = statistic;
         this.material = material;

@@ -30,7 +30,7 @@ public class EventListener implements Listener {
         Optional<StatisticsObject> statObject = statisticsQueue.stream()
                 .filter(stat ->
                         Arrays.equals(stat.uuid, uuid) &&
-                                event.getStatistic() != null && Objects.equals(stat.statistic, event.getStatistic().name()) &&
+                                event.getStatistic() != null && Objects.equals(stat.statistic, event.getStatistic()) &&
                                 event.getMaterial() != null && Objects.equals(stat.material, event.getMaterial().name()) &&
                                 event.getEntityType() != null && Objects.equals(stat.entity, event.getEntityType().name()))
                 .findFirst();
@@ -40,7 +40,7 @@ public class EventListener implements Listener {
         } else {
             statisticsQueue.add(new StatisticsObject(
                     uuid,
-                    event.getStatistic().name(),
+                    event.getStatistic(),
                     event.getMaterial() != null ? event.getMaterial().name() : null,
                     event.getEntityType() != null ? event.getEntityType().name() : null,
                     event.getNewValue()
@@ -83,7 +83,7 @@ public class EventListener implements Listener {
         }
         StatsDB.STATISTIC_LIST.forEach(stat -> statisticsQueue.add(new StatisticsObject(
                 uuid,
-                stat.name(),
+                stat,
                 null,
                 null,
                 event.getPlayer().getStatistic(stat)
@@ -95,7 +95,7 @@ public class EventListener implements Listener {
         byte[] uuid = StatsDB.getBytesFromUUID(event.getPlayer());
         StatsDB.STATISTIC_LIST.forEach(stat -> statisticsQueue.add(new StatisticsObject(
                 uuid,
-                stat.name(),
+                stat,
                 null,
                 null,
                 event.getPlayer().getStatistic(stat)

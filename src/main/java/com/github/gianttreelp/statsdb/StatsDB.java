@@ -1,5 +1,6 @@
 package com.github.gianttreelp.statsdb;
 
+import com.google.common.collect.Maps;
 import com.zaxxer.hikari.HikariDataSource;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -7,7 +8,6 @@ import org.bukkit.Statistic;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import javax.sql.DataSource;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.sql.Connection;
@@ -16,13 +16,14 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static org.bukkit.Statistic.*;
 
-@SuppressWarnings("unused")
+@SuppressWarnings({"unused", "SqlDialectInspection", "SqlNoDataSourceInspection"})
 public class StatsDB extends JavaPlugin {
 
     static final List<Statistic> STATISTIC_LIST = Arrays.asList(
@@ -42,9 +43,11 @@ public class StatsDB extends JavaPlugin {
             CROUCH_ONE_CM,
             AVIATE_ONE_CM,
             TIME_SINCE_DEATH);
-    private static DataSource dataSource;
+    private static HikariDataSource dataSource;
     private EventListener eventListener;
     private Lock syncLock = new ReentrantLock();
+
+    private Map<Type, PreparedStatement> statementMap;
 
     static byte[] getBytesFromUUID(OfflinePlayer player) {
         UUID playerId = player.getUniqueId();
@@ -73,11 +76,39 @@ public class StatsDB extends JavaPlugin {
         registerTasks();
         registerEventListener();
         registerCommand();
+        prepareStatements();
+    }
+
+    private void prepareStatements() {
+        statementMap = Maps.newConcurrentMap();
+        try {
+            statementMap.put(Type.UNTYPED, getConnection().prepareStatement(
+                    "DELETE FROM `Statistics` WHERE " +
+                            "`player_id` = ? AND `statistic` = ?;"
+            ));
+            statementMap.put(Type.BLOCK, getConnection().prepareStatement(
+                    "DELETE FROM `Statistics` WHERE " +
+                            "`player_id` = ? " +
+                            "AND `statistic` = ?" +
+                            "AND `material` = ?;"
+            ));
+            statementMap.put(Type.ITEM, statementMap.get(Type.BLOCK));
+            statementMap.put(Type.ENTITY, getConnection().prepareStatement(
+                    "DELETE FROM `Statistics` WHERE " +
+                            "`player_id` = ? " +
+                            "AND `statistic` = ?" +
+                            "AND `entity` = ?;"
+            ));
+            statementMap = Maps.immutableEnumMap(statementMap);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
     public void onDisable() {
         synchronizeStats();
+        dataSource.close();
     }
 
     private void registerCommand() {
@@ -133,22 +164,19 @@ public class StatsDB extends JavaPlugin {
             updates.executeBatch();
 
             StatisticsObject stat;
-            while ((stat = eventListener.statisticsQueue.poll()) != null) {
-                StringBuilder builder = new StringBuilder()
-                        .append("DELETE FROM `Statistics` WHERE " +
-                                "`player_id` = ? " +
-                                "AND `statistic` = ? ");
 
-                if (stat.material != null) {
-                    builder.append("AND `material` = ? ");
-                }
-                if (stat.entity != null) {
-                    builder.append("AND `entity` = ? ");
-                }
+            PreparedStatement insertStatement = connection.prepareStatement(
+                    "INSERT INTO `Statistics`(" +
+                            "`player_id`, `statistic`, " +
+                            "`value`, `material`, `entity`) " +
+                            "VALUES (?, ?, ?, ?, ?)");
+
+            while ((stat = eventListener.statisticsQueue.poll()) != null) {
                 try {
-                    PreparedStatement statement = connection.prepareStatement(builder.toString());
+                    PreparedStatement statement = statementMap.get(stat
+                            .statistic.getType());
                     statement.setBytes(1, stat.uuid);
-                    statement.setString(2, stat.statistic);
+                    statement.setString(2, stat.statistic.name());
                     if (stat.material != null) {
                         statement.setString(3, stat.material);
                     } else if (stat.entity != null) {
@@ -161,13 +189,8 @@ public class StatsDB extends JavaPlugin {
                 }
 
                 try {
-                    PreparedStatement insertStatement = connection.prepareStatement(
-                            "INSERT INTO `Statistics`(" +
-                                    "`player_id`, `statistic`, " +
-                                    "`value`, `material`, `entity`) " +
-                                    "VALUES (?, ?, ?, ?, ?)");
                     insertStatement.setBytes(1, stat.uuid);
-                    insertStatement.setString(2, stat.statistic);
+                    insertStatement.setString(2, stat.statistic.name());
                     insertStatement.setInt(3, stat.value);
                     if (stat.material != null) {
                         insertStatement.setString(4, stat.material);
@@ -208,7 +231,7 @@ public class StatsDB extends JavaPlugin {
         }
     }
 
-    private DataSource getDataSource() {
+    private HikariDataSource getDataSource() {
         HikariDataSource source = new HikariDataSource();
         source.setJdbcUrl(getConfig().getString("database.url"));
         source.setUsername(getConfig().getString("database.username"));
