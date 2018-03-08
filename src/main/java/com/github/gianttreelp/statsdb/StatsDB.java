@@ -14,8 +14,6 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.locks.Lock;
@@ -26,23 +24,24 @@ import static org.bukkit.Statistic.*;
 @SuppressWarnings({"unused", "SqlDialectInspection", "SqlNoDataSourceInspection"})
 public class StatsDB extends JavaPlugin {
 
-    static final List<Statistic> STATISTIC_LIST = Arrays.asList(
-            PLAY_ONE_TICK,
-            WALK_ONE_CM,
-            SWIM_ONE_CM,
-            FALL_ONE_CM,
-            SNEAK_TIME,
-            CLIMB_ONE_CM,
-            FLY_ONE_CM,
-            DIVE_ONE_CM,
-            MINECART_ONE_CM,
-            BOAT_ONE_CM,
-            PIG_ONE_CM,
-            HORSE_ONE_CM,
-            SPRINT_ONE_CM,
-            CROUCH_ONE_CM,
-            AVIATE_ONE_CM,
-            TIME_SINCE_DEATH);
+    static final Statistic[] STATISTIC_LIST =
+            {
+                    PLAY_ONE_TICK,
+                    WALK_ONE_CM,
+                    SWIM_ONE_CM,
+                    FALL_ONE_CM,
+                    SNEAK_TIME,
+                    CLIMB_ONE_CM,
+                    FLY_ONE_CM,
+                    DIVE_ONE_CM,
+                    MINECART_ONE_CM,
+                    BOAT_ONE_CM,
+                    PIG_ONE_CM,
+                    HORSE_ONE_CM,
+                    SPRINT_ONE_CM,
+                    CROUCH_ONE_CM,
+                    AVIATE_ONE_CM,
+                    TIME_SINCE_DEATH};
     private static HikariDataSource dataSource;
     private EventListener eventListener;
     private Lock syncLock = new ReentrantLock();
@@ -149,16 +148,16 @@ public class StatsDB extends JavaPlugin {
 
             Bukkit.getOnlinePlayers().forEach(player -> {
                 byte[] uuid = getBytesFromUUID(player);
-                STATISTIC_LIST.forEach(statistic -> {
+                for (Statistic stat : STATISTIC_LIST) {
                     try {
-                        updates.setInt(1, player.getStatistic(statistic));
+                        updates.setInt(1, player.getStatistic(stat));
                         updates.setBytes(2, uuid);
-                        updates.setString(3, statistic.name());
+                        updates.setString(3, stat.name());
                         updates.addBatch();
                     } catch (SQLException e) {
                         e.printStackTrace();
                     }
-                });
+                }
             });
 
             updates.executeBatch();
