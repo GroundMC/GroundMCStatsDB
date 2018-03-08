@@ -43,9 +43,8 @@ public class StatsDB extends JavaPlugin {
                     AVIATE_ONE_CM,
                     TIME_SINCE_DEATH};
     private static HikariDataSource dataSource;
+    final private Lock syncLock = new ReentrantLock();
     private EventListener eventListener;
-    private Lock syncLock = new ReentrantLock();
-
     private Map<Type, PreparedStatement> statementMap;
 
     static byte[] getBytesFromUUID(OfflinePlayer player) {
@@ -63,13 +62,6 @@ public class StatsDB extends JavaPlugin {
     public void onEnable() {
         saveDefaultConfig();
         dataSource = getDataSource();
-
-        if (dataSource == null) {
-            getLogger().severe("Can't connect to SQL Server, please " +
-                    "verify your configuration.");
-            getLogger().severe("Disabling...");
-            getPluginLoader().disablePlugin(this);
-        }
 
         createTable();
         registerTasks();

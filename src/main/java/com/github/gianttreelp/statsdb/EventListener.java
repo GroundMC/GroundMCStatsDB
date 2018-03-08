@@ -20,9 +20,9 @@ import java.util.Optional;
 import java.util.Queue;
 
 @SuppressWarnings({"SqlDialectInspection", "SqlNoDataSourceInspection"})
-public class EventListener implements Listener {
+class EventListener implements Listener {
 
-    Queue<StatisticsObject> statisticsQueue = Queues.newConcurrentLinkedQueue();
+    final Queue<StatisticsObject> statisticsQueue = Queues.newConcurrentLinkedQueue();
 
     @EventHandler
     public void onStatisticIncrement(PlayerStatisticIncrementEvent event) {
