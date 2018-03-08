@@ -24,28 +24,53 @@ import static org.bukkit.Statistic.*;
 @SuppressWarnings({"unused", "SqlDialectInspection", "SqlNoDataSourceInspection"})
 public class StatsDB extends JavaPlugin {
 
-    static final Statistic[] STATISTIC_LIST =
-            {
-                    PLAY_ONE_TICK,
-                    WALK_ONE_CM,
-                    SWIM_ONE_CM,
-                    FALL_ONE_CM,
-                    SNEAK_TIME,
-                    CLIMB_ONE_CM,
-                    FLY_ONE_CM,
-                    DIVE_ONE_CM,
-                    MINECART_ONE_CM,
-                    BOAT_ONE_CM,
-                    PIG_ONE_CM,
-                    HORSE_ONE_CM,
-                    SPRINT_ONE_CM,
-                    CROUCH_ONE_CM,
-                    AVIATE_ONE_CM,
-                    TIME_SINCE_DEATH};
+    static final Statistic[] STATISTIC_LIST = {
+            PLAY_ONE_TICK,
+            WALK_ONE_CM,
+            SWIM_ONE_CM,
+            FALL_ONE_CM,
+            SNEAK_TIME,
+            CLIMB_ONE_CM,
+            FLY_ONE_CM,
+            DIVE_ONE_CM,
+            MINECART_ONE_CM,
+            BOAT_ONE_CM,
+            PIG_ONE_CM,
+            HORSE_ONE_CM,
+            SPRINT_ONE_CM,
+            CROUCH_ONE_CM,
+            AVIATE_ONE_CM,
+            TIME_SINCE_DEATH};
+    private static final Map<Object, String> statementStringMap = Maps.newConcurrentMap();
     private static HikariDataSource dataSource;
+
+    static {
+        statementStringMap.put(Type.UNTYPED, "DELETE FROM `Statistics` WHERE " +
+                "`player_id` = ? AND `statistic` = ?;"
+        );
+        statementStringMap.put(Type.BLOCK, "DELETE FROM `Statistics` WHERE " +
+                "`player_id` = ? " +
+                "AND `statistic` = ?" +
+                "AND `material` = ?;"
+        );
+        statementStringMap.put(Type.ITEM, statementStringMap.get(Type.BLOCK));
+        statementStringMap.put(Type.ENTITY, "DELETE FROM `Statistics` WHERE " +
+                "`player_id` = ? " +
+                "AND `statistic` = ?" +
+                "AND `entity` = ?;"
+        );
+        statementStringMap.put(SqlType.INSERT, "INSERT INTO `Statistics`(" +
+                "`player_id`, `statistic`, " +
+                "`value`, `material`, `entity`) " +
+                "VALUES (?, ?, ?, ?, ?)");
+        statementStringMap.put(SqlType.UPDATE, "UPDATE `Statistics`" +
+                "SET `value` = ? " +
+                "WHERE `player_id` = ?" +
+                "AND `statistic` = ?");
+    }
+
     final private Lock syncLock = new ReentrantLock();
     private EventListener eventListener;
-    private Map<Type, PreparedStatement> statementMap;
 
     static byte[] getBytesFromUUID(OfflinePlayer player) {
         UUID playerId = player.getUniqueId();
@@ -67,33 +92,20 @@ public class StatsDB extends JavaPlugin {
         registerTasks();
         registerEventListener();
         registerCommand();
-        prepareStatements();
     }
 
-    private void prepareStatements() {
-        statementMap = Maps.newConcurrentMap();
-        try {
-            statementMap.put(Type.UNTYPED, getConnection().prepareStatement(
-                    "DELETE FROM `Statistics` WHERE " +
-                            "`player_id` = ? AND `statistic` = ?;"
-            ));
-            statementMap.put(Type.BLOCK, getConnection().prepareStatement(
-                    "DELETE FROM `Statistics` WHERE " +
-                            "`player_id` = ? " +
-                            "AND `statistic` = ?" +
-                            "AND `material` = ?;"
-            ));
-            statementMap.put(Type.ITEM, statementMap.get(Type.BLOCK));
-            statementMap.put(Type.ENTITY, getConnection().prepareStatement(
-                    "DELETE FROM `Statistics` WHERE " +
-                            "`player_id` = ? " +
-                            "AND `statistic` = ?" +
-                            "AND `entity` = ?;"
-            ));
-            statementMap = Maps.immutableEnumMap(statementMap);
-        } catch (SQLException e) {
-            e.printStackTrace();
+    private Map<Object, PreparedStatement> prepareStatements(Connection connection) throws SQLException {
+        Map<Object, PreparedStatement> map = Maps.newHashMap();
+        for (Type type : Statistic.Type.values()) {
+            map.put(type, connection.prepareStatement(
+                    statementStringMap.get(type)));
         }
+        for (SqlType type : SqlType.values()) {
+            map.put(type, connection.prepareStatement(
+                    statementStringMap.get(type)));
+        }
+
+        return map;
     }
 
     @Override
@@ -126,18 +138,15 @@ public class StatsDB extends JavaPlugin {
             if (!syncLock.tryLock()) {
                 return;
             }
-
             Connection connection = getConnection();
             if (connection == null) {
                 return;
             }
 
-            PreparedStatement updates = connection.prepareStatement(
-                    "UPDATE `Statistics`" +
-                            "SET `value` = ? " +
-                            "WHERE `player_id` = ?" +
-                            "AND `statistic` = ?");
+            Map<Object, PreparedStatement> statementMap =
+                    prepareStatements(connection);
 
+            PreparedStatement updates = statementMap.get(SqlType.UPDATE);
             Bukkit.getOnlinePlayers().forEach(player -> {
                 byte[] uuid = getBytesFromUUID(player);
                 for (Statistic stat : STATISTIC_LIST) {
@@ -152,28 +161,21 @@ public class StatsDB extends JavaPlugin {
                 }
             });
 
-            updates.executeBatch();
-
+            PreparedStatement insertStatement = statementMap.get(SqlType.INSERT);
             StatisticsObject stat;
-
-            PreparedStatement insertStatement = connection.prepareStatement(
-                    "INSERT INTO `Statistics`(" +
-                            "`player_id`, `statistic`, " +
-                            "`value`, `material`, `entity`) " +
-                            "VALUES (?, ?, ?, ?, ?)");
 
             while ((stat = eventListener.statisticsQueue.poll()) != null) {
                 try {
-                    PreparedStatement statement = statementMap.get(stat
-                            .statistic.getType());
-                    statement.setBytes(1, stat.uuid);
-                    statement.setString(2, stat.statistic.name());
+                    PreparedStatement deleteStatement = statementMap.get(
+                            stat.statistic.getType());
+                    deleteStatement.setBytes(1, stat.uuid);
+                    deleteStatement.setString(2, stat.statistic.name());
                     if (stat.material != null) {
-                        statement.setString(3, stat.material);
+                        deleteStatement.setString(3, stat.material);
                     } else if (stat.entity != null) {
-                        statement.setString(3, stat.entity);
+                        deleteStatement.setString(3, stat.entity);
                     }
-                    statement.executeUpdate();
+                    deleteStatement.addBatch();
                 } catch (SQLException e) {
                     e.printStackTrace();
                 }
@@ -192,14 +194,15 @@ public class StatsDB extends JavaPlugin {
                     } else {
                         insertStatement.setNull(5, Types.VARCHAR);
                     }
-                    insertStatement.executeUpdate();
-                    insertStatement.close();
+                    insertStatement.addBatch();
                 } catch (SQLException e) {
                     e.printStackTrace();
                 }
             }
-            insertStatement.close();
-            connection.commit();
+            for (PreparedStatement statement : statementMap.values()) {
+                statement.executeBatch();
+                statement.close();
+            }
             connection.close();
         } catch (Exception e) {
             e.printStackTrace();
