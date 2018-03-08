@@ -19,6 +19,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
 
+@SuppressWarnings({"SqlDialectInspection", "SqlNoDataSourceInspection"})
 public class EventListener implements Listener {
 
     Queue<StatisticsObject> statisticsQueue = Queues.newConcurrentLinkedQueue();
@@ -81,24 +82,28 @@ public class EventListener implements Listener {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        StatsDB.STATISTIC_LIST.forEach(stat -> statisticsQueue.add(new StatisticsObject(
-                uuid,
-                stat,
-                null,
-                null,
-                event.getPlayer().getStatistic(stat)
-        )));
+        for (Statistic stat : StatsDB.STATISTIC_LIST) {
+            statisticsQueue.add(new StatisticsObject(
+                    uuid,
+                    stat,
+                    null,
+                    null,
+                    event.getPlayer().getStatistic(stat)
+            ));
+        }
     }
 
     @EventHandler
     public void onLeave(PlayerQuitEvent event) {
         byte[] uuid = StatsDB.getBytesFromUUID(event.getPlayer());
-        StatsDB.STATISTIC_LIST.forEach(stat -> statisticsQueue.add(new StatisticsObject(
-                uuid,
-                stat,
-                null,
-                null,
-                event.getPlayer().getStatistic(stat)
-        )));
+        for (Statistic stat : StatsDB.STATISTIC_LIST) {
+            statisticsQueue.add(new StatisticsObject(
+                    uuid,
+                    stat,
+                    null,
+                    null,
+                    event.getPlayer().getStatistic(stat)
+            ));
+        }
     }
 }

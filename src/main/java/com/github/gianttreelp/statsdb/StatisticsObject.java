@@ -9,9 +9,9 @@ final class StatisticsObject {
     final String entity;
     int value;
 
-    StatisticsObject(final byte[] uuid, final Statistic statistic, final
-    String
-            material, final String entity, final int value) {
+    StatisticsObject(final byte[] uuid, final Statistic statistic,
+                     final String material, final String entity,
+                     final int value) {
         this.uuid = uuid;
         this.statistic = statistic;
         this.material = material;
