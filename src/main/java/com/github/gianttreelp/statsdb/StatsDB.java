@@ -174,7 +174,6 @@ public class StatsDB extends JavaPlugin {
                         statement.setString(3, stat.entity);
                     }
                     statement.executeUpdate();
-                    statement.close();
                 } catch (SQLException e) {
                     e.printStackTrace();
                 }
@@ -199,6 +198,7 @@ public class StatsDB extends JavaPlugin {
                     e.printStackTrace();
                 }
             }
+            insertStatement.close();
             connection.commit();
             connection.close();
         } catch (Exception e) {
