@@ -15,14 +15,14 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.stream.Collectors;
 
+@SuppressWarnings({"SqlDialectInspection", "SqlNoDataSourceInspection"})
 class StatsDBCommand implements CommandExecutor, TabCompleter {
 
-    private StatsDB statsDB;
+    final private StatsDB statsDB;
 
     StatsDBCommand(StatsDB statsDB) {
         this.statsDB = statsDB;
@@ -178,44 +178,80 @@ class StatsDBCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         switch (args.length) {
             case 1:
-                return Arrays.stream(Statistic.values())
-                        .map(Enum::name)
-                        .filter(name -> startsWithIgnoreCase(name, args[0]))
-                        .collect(Collectors.toList());
+                return getStatisticNameBeginningWith(args[0]);
             case 2:
-                Statistic.Type statType = Statistic.valueOf(args[0]).getType();
-                switch (statType) {
+                switch (Statistic.valueOf(args[0]).getType()) {
                     case UNTYPED:
-                        return Bukkit.getOnlinePlayers()
-                                .stream()
-                                .map(Player::getDisplayName)
-                                .filter(name -> startsWithIgnoreCase(name, args[1]))
-                                .collect(Collectors.toList());
+                        return getPlayerNamesBeginningWith(args[1]);
                     case BLOCK:
-                        return Arrays.stream(Material.values())
-                                .filter(Material::isBlock)
-                                .map(Enum::name)
-                                .filter(name -> startsWithIgnoreCase(name, args[1]))
-                                .collect(Collectors.toList());
+                        return getBlockNamesBeginningWith(args[1]);
                     case ITEM:
-                        return Arrays.stream(Material.values())
-                                .filter(material -> !material.isBlock())
-                                .map(Enum::name)
-                                .filter(name -> startsWithIgnoreCase(name, args[1]))
-                                .collect(Collectors.toList());
+                        return getItemNamesBeginningWith(args[1]);
                     case ENTITY:
-                        return Arrays.stream(EntityType.values())
-                                .map(Enum::name)
-                                .filter(name -> startsWithIgnoreCase(name, args[1]))
-                                .collect(Collectors.toList());
+                        return getEntityNamesBeginningWith(args[1]);
                 }
             case 3:
-                return Bukkit.getOnlinePlayers()
-                        .stream()
-                        .map(Player::getName)
-                        .filter(name -> startsWithIgnoreCase(name, args[2]))
-                        .collect(Collectors.toList());
+                return getPlayerNamesBeginningWith(args[2]);
         }
         return null;
+    }
+
+    private List<String> getEntityNamesBeginningWith(String begin) {
+        List<String> list = new ArrayList<>(EntityType.values().length / 3);
+        for (EntityType entityType : EntityType.values()) {
+            String name = entityType.name();
+            if (startsWithIgnoreCase(name, begin)) {
+                list.add(name);
+            }
+        }
+        return list;
+    }
+
+    private List<String> getItemNamesBeginningWith(String beign) {
+        List<String> list = new ArrayList<>();
+        for (Material material : Material.values()) {
+            if (!material.isBlock()) {
+                String name = material.name();
+                if (startsWithIgnoreCase(name, beign)) {
+                    list.add(name);
+                }
+            }
+        }
+        return list;
+    }
+
+    private List<String> getStatisticNameBeginningWith(String begin) {
+        List<String> list = new ArrayList<>(Statistic.values().length / 3);
+        for (Statistic statistic : Statistic.values()) {
+            String name = statistic.name();
+            if (startsWithIgnoreCase(name, begin)) {
+                list.add(name);
+            }
+        }
+        return list;
+    }
+
+    private List<String> getBlockNamesBeginningWith(String begin) {
+        List<String> list = new ArrayList<>();
+        for (Material material : Material.values()) {
+            if (material.isBlock()) {
+                String name = material.name();
+                if (startsWithIgnoreCase(name, begin)) {
+                    list.add(name);
+                }
+            }
+        }
+        return list;
+    }
+
+    private List<String> getPlayerNamesBeginningWith(String begin) {
+        List<String> list = new ArrayList<>(Bukkit.getOnlinePlayers().size() / 3);
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            String name = player.getDisplayName();
+            if (startsWithIgnoreCase(name, begin)) {
+                list.add(name);
+            }
+        }
+        return list;
     }
 }
