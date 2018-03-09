@@ -1,4 +1,4 @@
-package com.github.gianttreelp.statsdb
+package gtlp.groundmc.statsdb
 
 internal enum class SqlType {
     INSERT,

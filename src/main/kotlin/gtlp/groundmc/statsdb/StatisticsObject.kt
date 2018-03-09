@@ -1,4 +1,4 @@
-package com.github.gianttreelp.statsdb
+package gtlp.groundmc.statsdb
 
 import org.bukkit.Statistic
 import java.util.*
