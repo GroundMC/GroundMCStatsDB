@@ -179,15 +179,15 @@ class StatsDB : JavaPlugin() {
                         "`player_id` = ? AND `statistic` = ?;",
                 Type.BLOCK to "DELETE FROM `Statistics` WHERE " +
                         "`player_id` = ? " +
-                        "AND `statistic` = ?" +
+                        "AND `statistic` = ? " +
                         "AND `material` = ?;",
                 Type.ITEM to "DELETE FROM `Statistics` WHERE " +
                         "`player_id` = ? " +
-                        "AND `statistic` = ?" +
+                        "AND `statistic` = ? " +
                         "AND `material` = ?;",
                 Type.ENTITY to "DELETE FROM `Statistics` WHERE " +
                         "`player_id` = ? " +
-                        "AND `statistic` = ?" +
+                        "AND `statistic` = ? " +
                         "AND `entity` = ?;",
                 SqlType.INSERT to "INSERT INTO `Statistics`(" +
                         "`player_id`, `statistic`, " +
@@ -195,7 +195,7 @@ class StatsDB : JavaPlugin() {
                         "VALUES (?, ?, ?, ?, ?);",
                 SqlType.UPDATE to "UPDATE `Statistics` " +
                         "SET `value` = ? " +
-                        "WHERE `player_id` = ?" +
+                        "WHERE `player_id` = ? " +
                         "AND `statistic` = ?;"
         )
 
