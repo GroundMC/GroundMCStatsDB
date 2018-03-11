@@ -1,5 +1,4 @@
 server:
-  identifier: "Server1"
   sync_interval: 200
 
 database:
