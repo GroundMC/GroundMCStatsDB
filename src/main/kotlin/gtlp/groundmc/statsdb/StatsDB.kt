@@ -147,7 +147,7 @@ class StatsDB : JavaPlugin() {
         source.password = config.getString("database.password")
         source.isAutoCommit = false
         source.transactionIsolation = "TRANSACTION_READ_UNCOMMITTED"
-        source.maximumPoolSize = 1
+        source.maximumPoolSize = 2
         source.addDataSourceProperty("journal_mode", "WAL")
         source.addDataSourceProperty("rewriteBatchedStatements", true)
         source.addDataSourceProperty("cachePrepStmts", true)
