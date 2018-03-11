@@ -213,8 +213,8 @@ class StatsDB : JavaPlugin() {
             get() = dataSource!!.connection
 
         @Throws(SQLException::class)
-        private fun prepareStatements(connection: Connection): Map<Any, PreparedStatement> {
-            val map = Maps.newHashMap<Any, PreparedStatement>()
+        private fun prepareStatements(connection: Connection): Map<Enum<*>, PreparedStatement> {
+            val map = Maps.newHashMap<Enum<*>, PreparedStatement>()
             for (type in Statistic.Type.values()) {
                 map[type] = connection.prepareStatement(
                         statementStringMap[type])
