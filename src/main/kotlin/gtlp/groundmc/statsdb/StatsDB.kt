@@ -1,7 +1,6 @@
 package gtlp.groundmc.statsdb
 
 import com.google.common.collect.Maps
-import com.zaxxer.hikari.HikariDataSource
 import org.bukkit.Bukkit
 import org.bukkit.OfflinePlayer
 import org.bukkit.Statistic
@@ -9,20 +8,28 @@ import org.bukkit.Statistic.*
 import org.bukkit.plugin.java.JavaPlugin
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.sql.Connection
-import java.sql.PreparedStatement
-import java.sql.SQLException
-import java.sql.Types
+import java.sql.*
+import java.util.*
 import java.util.concurrent.locks.ReentrantLock
 
 class StatsDB : JavaPlugin() {
 
     private val syncLock = ReentrantLock()
     private var eventListener = EventListener()
+    private val connection by lazy {
+        DriverManager.getConnection(config.getString("database.url"),
+                Properties().apply {
+                    put("user", config.getString("database.username"))
+                    put("password", config.getString("database.password"))
+                    put("journal_mode", "wal")
+                }).apply {
+            transactionIsolation = Connection.TRANSACTION_READ_UNCOMMITTED
+            this.autoCommit = false
+        }
+    }
 
     override fun onEnable() {
         saveDefaultConfig()
-        dataSource = getDataSource()
 
         createTable()
         registerTasks()
@@ -32,7 +39,7 @@ class StatsDB : JavaPlugin() {
 
     override fun onDisable() {
         synchronizeStats()
-        dataSource?.close()
+        connection.close()
     }
 
     private fun registerCommand() {
@@ -140,21 +147,6 @@ class StatsDB : JavaPlugin() {
 
     }
 
-    private fun getDataSource(): HikariDataSource {
-        val source = HikariDataSource()
-        source.jdbcUrl = config.getString("database.url")
-        source.username = config.getString("database.username")
-        source.password = config.getString("database.password")
-        source.isAutoCommit = false
-        source.transactionIsolation = "TRANSACTION_READ_UNCOMMITTED"
-        source.maximumPoolSize = 2
-        source.addDataSourceProperty("journal_mode", "WAL")
-        source.addDataSourceProperty("rewriteBatchedStatements", true)
-        source.addDataSourceProperty("cachePrepStmts", true)
-        source.addDataSourceProperty("useServerPrepStmts", true)
-        return source
-    }
-
     companion object {
 
         internal val STATISTIC_LIST = arrayOf(
@@ -199,18 +191,12 @@ class StatsDB : JavaPlugin() {
                         "AND `statistic` = ?;"
         )
 
-        private var dataSource: HikariDataSource? = null
-
         internal fun getBytesFromUUID(player: OfflinePlayer): ByteArray {
             val playerId = player.uniqueId
             return ByteBuffer.wrap(ByteArray(16)).order(ByteOrder.BIG_ENDIAN)
                     .putLong(playerId.mostSignificantBits)
                     .putLong(playerId.leastSignificantBits).array()
         }
-
-        internal val connection: Connection
-            @Throws(SQLException::class)
-            get() = dataSource!!.connection
 
         @Throws(SQLException::class)
         private fun prepareStatements(connection: Connection): Map<Enum<*>, PreparedStatement> {
