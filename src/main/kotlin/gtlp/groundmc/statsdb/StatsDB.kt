@@ -16,8 +16,11 @@ class StatsDB : JavaPlugin() {
 
     private val syncLock = ReentrantLock()
     private var eventListener = EventListener()
-    private val connection by lazy {
-        DriverManager.getConnection(config.getString("database.url"),
+
+    override fun onEnable() {
+        saveDefaultConfig()
+
+        connection = DriverManager.getConnection(config.getString("database.url"),
                 Properties().apply {
                     put("user", config.getString("database.username"))
                     put("password", config.getString("database.password"))
@@ -26,10 +29,6 @@ class StatsDB : JavaPlugin() {
             transactionIsolation = Connection.TRANSACTION_READ_UNCOMMITTED
             this.autoCommit = false
         }
-    }
-
-    override fun onEnable() {
-        saveDefaultConfig()
 
         createTable()
         registerTasks()
@@ -39,7 +38,7 @@ class StatsDB : JavaPlugin() {
 
     override fun onDisable() {
         synchronizeStats()
-        connection.close()
+        Companion.connection.close()
     }
 
     private fun registerCommand() {
@@ -68,7 +67,7 @@ class StatsDB : JavaPlugin() {
             return
         }
         try {
-            val conn = connection
+            val conn = Companion.connection
 
             val statementMap = prepareStatements(conn)
 
@@ -134,7 +133,7 @@ class StatsDB : JavaPlugin() {
 
     private fun createTable() {
         try {
-            connection.createStatement().execute("CREATE TABLE " +
+            Companion.connection.createStatement().execute("CREATE TABLE " +
                     "IF NOT EXISTS `Statistics`(" +
                     "`player_id` BINARY(16) NOT NULL ," +
                     "`statistic` VARCHAR(255) NOT NULL ," +
@@ -212,5 +211,7 @@ class StatsDB : JavaPlugin() {
 
             return map
         }
+
+        internal lateinit var connection: Connection
     }
 }
