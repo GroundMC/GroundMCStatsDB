@@ -63,7 +63,7 @@ class StatsDB : JavaPlugin() {
         try {
             with(connection) {
 
-                val statementMap = prepareStatements(connection)
+                val statementMap = prepareStatements(this)
 
                 val updates = statementMap[SqlType.UPDATE] ?: return@with
                 Bukkit.getOnlinePlayers().forEach { player ->
