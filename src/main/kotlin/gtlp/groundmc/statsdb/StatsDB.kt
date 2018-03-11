@@ -61,73 +61,63 @@ class StatsDB : JavaPlugin() {
             return
         }
         try {
-            with(connection) {
+            val conn = connection
 
-                val statementMap = prepareStatements(this)
+            val statementMap = prepareStatements(conn)
 
-                val updates = statementMap[SqlType.UPDATE] ?: return@with
-                Bukkit.getOnlinePlayers().forEach { player ->
-                    val uuid = getBytesFromUUID(player)
-                    for (stat in STATISTIC_LIST) {
-                        try {
-                            updates.setInt(1, player.getStatistic(stat))
-                            updates.setBytes(2, uuid)
-                            updates.setString(3, stat.name)
-                            updates.addBatch()
-                        } catch (e: SQLException) {
-                            e.printStackTrace()
-                        }
-
-                    }
-                }
-
-                val insertStatement = statementMap[SqlType.INSERT]
-                        ?: return@with
-
-                while (eventListener.statisticsQueue.peek() != null) {
-                    val stat = eventListener.statisticsQueue.poll()
+            val updates = statementMap[SqlType.UPDATE] ?: return
+            Bukkit.getOnlinePlayers().forEach { player ->
+                val uuid = getBytesFromUUID(player)
+                for (stat in STATISTIC_LIST) {
                     try {
-                        val deleteStatement = statementMap[stat.statistic.type]
-                                ?: return@with
-                        deleteStatement.setBytes(1, stat.uuid)
-                        deleteStatement.setString(2, stat.statistic.name)
-                        if (stat.material != null) {
-                            deleteStatement.setString(3, stat.material)
-                        } else if (stat.entity != null) {
-                            deleteStatement.setString(3, stat.entity)
-                        }
-                        deleteStatement.addBatch()
-                    } catch (e: SQLException) {
-                        e.printStackTrace()
-                    }
-
-                    try {
-                        insertStatement.setBytes(1, stat.uuid)
-                        insertStatement.setString(2, stat.statistic.name)
-                        insertStatement.setInt(3, stat.value)
-                        if (stat.material != null) {
-                            insertStatement.setString(4, stat.material)
-                        } else {
-                            insertStatement.setNull(4, Types.VARCHAR)
-                        }
-                        if (stat.entity != null) {
-                            insertStatement.setString(5, stat.entity)
-                        } else {
-                            insertStatement.setNull(5, Types.VARCHAR)
-                        }
-                        insertStatement.addBatch()
+                        updates.setInt(1, player.getStatistic(stat))
+                        updates.setBytes(2, uuid)
+                        updates.setString(3, stat.name)
+                        updates.addBatch()
                     } catch (e: SQLException) {
                         e.printStackTrace()
                     }
 
                 }
-                for (statement in statementMap.values) {
-                    statement.executeBatch()
-                    this.commit()
-                    statement.close()
-                }
-                this.close()
             }
+
+            val insertStatement = statementMap[SqlType.INSERT]
+                    ?: return
+
+            while (eventListener.statisticsQueue.peek() != null) {
+                val stat = eventListener.statisticsQueue.poll()
+                val deleteStatement = statementMap[stat.statistic.type]
+                        ?: return
+                deleteStatement.setBytes(1, stat.uuid)
+                deleteStatement.setString(2, stat.statistic.name)
+                if (stat.material != null) {
+                    deleteStatement.setString(3, stat.material)
+                } else if (stat.entity != null) {
+                    deleteStatement.setString(3, stat.entity)
+                }
+                deleteStatement.addBatch()
+
+                insertStatement.setBytes(1, stat.uuid)
+                insertStatement.setString(2, stat.statistic.name)
+                insertStatement.setInt(3, stat.value)
+                if (stat.material != null) {
+                    insertStatement.setString(4, stat.material)
+                } else {
+                    insertStatement.setNull(4, Types.VARCHAR)
+                }
+                if (stat.entity != null) {
+                    insertStatement.setString(5, stat.entity)
+                } else {
+                    insertStatement.setNull(5, Types.VARCHAR)
+                }
+                insertStatement.addBatch()
+            }
+            statementMap.values.forEach {
+                logger.info("Updated ${it.executeBatch().size} statistics")
+                conn.commit()
+                it.close()
+            }
+            conn.close()
         } catch (e: Exception) {
             e.printStackTrace()
         } finally {
@@ -204,6 +194,7 @@ class StatsDB : JavaPlugin() {
                         "WHERE `player_id` = ?" +
                         "AND `statistic` = ?;"
         )
+
         private var dataSource: HikariDataSource? = null
 
         internal fun getBytesFromUUID(player: OfflinePlayer): ByteArray {
