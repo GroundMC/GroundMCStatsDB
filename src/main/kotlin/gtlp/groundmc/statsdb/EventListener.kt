@@ -47,8 +47,7 @@ internal class EventListener : Listener {
     fun onJoin(event: PlayerJoinEvent) {
         val uuid = StatsDB.getBytesFromUUID(event.player)
         try {
-            val connection = StatsDB.connection
-            val statement = connection.prepareStatement(
+            val statement = StatsDB.connection.prepareStatement(
                     "SELECT * FROM `Statistics`" + "WHERE `player_id` = ?"
             )
             statement.setBytes(1, uuid)
@@ -70,7 +69,6 @@ internal class EventListener : Listener {
                 }
             }
             rs.close()
-            connection.close()
         } catch (e: SQLException) {
             e.printStackTrace()
         }
