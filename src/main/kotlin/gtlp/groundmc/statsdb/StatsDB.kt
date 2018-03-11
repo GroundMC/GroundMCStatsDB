@@ -148,6 +148,9 @@ class StatsDB : JavaPlugin() {
         source.isAutoCommit = false
         source.transactionIsolation = "TRANSACTION_READ_UNCOMMITTED"
         source.addDataSourceProperty("journal_mode", "WAL")
+        source.addDataSourceProperty("rewriteBatchedStatements", true)
+        source.addDataSourceProperty("cachePrepStmts", true)
+        source.addDataSourceProperty("useServerPrepStmts", true)
         return source
     }
 
