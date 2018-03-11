@@ -125,6 +125,7 @@ class StatsDB : JavaPlugin() {
                     statement.executeBatch()
                     statement.close()
                 }
+                this.close()
             }
         } catch (e: Exception) {
             e.printStackTrace()
