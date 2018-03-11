@@ -16,7 +16,7 @@ class StatsDB : JavaPlugin() {
 
     private val syncLock = ReentrantLock()
     private var eventListener = EventListener()
-    private lateinit var statementMap: Map<Enum<*>, PreparedStatement>
+    private val statementMap by lazy { prepareStatements(connection) }
 
     override fun onEnable() {
         saveDefaultConfig()
@@ -30,7 +30,6 @@ class StatsDB : JavaPlugin() {
             transactionIsolation = Connection.TRANSACTION_READ_UNCOMMITTED
             this.autoCommit = false
         }
-        statementMap = prepareStatements(connection)
 
         createTable()
         registerTasks()
