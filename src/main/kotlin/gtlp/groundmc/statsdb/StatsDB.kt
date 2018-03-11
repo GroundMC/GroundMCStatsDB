@@ -67,9 +67,8 @@ class StatsDB : JavaPlugin() {
             return
         }
         try {
-            val conn = Companion.connection
 
-            val statementMap = prepareStatements(conn)
+            val statementMap = prepareStatements(connection)
 
             val updates = statementMap[SqlType.UPDATE] ?: return
             Bukkit.getOnlinePlayers().forEach { player ->
@@ -122,8 +121,7 @@ class StatsDB : JavaPlugin() {
                 logger.info("Updated ${it.executeBatch().size} statistics")
                 it.close()
             }
-            conn.commit()
-            conn.close()
+            connection.commit()
         } catch (e: Exception) {
             e.printStackTrace()
         } finally {
