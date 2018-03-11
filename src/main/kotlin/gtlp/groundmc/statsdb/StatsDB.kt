@@ -55,6 +55,9 @@ class StatsDB : JavaPlugin() {
 
     private fun synchronizeStats() {
         try {
+            if (syncLock.isLocked) {
+                return
+            }
             if (!syncLock.tryLock()) {
                 return
             }
@@ -153,7 +156,7 @@ class StatsDB : JavaPlugin() {
         source.password = config.getString("database.password")
         source.isAutoCommit = false
         source.transactionIsolation = "TRANSACTION_READ_UNCOMMITTED"
-        source.addDataSourceProperty("journal_mode", "wal")
+        source.addDataSourceProperty("journal_mode", "WAL")
         return source
     }
 
@@ -194,11 +197,11 @@ class StatsDB : JavaPlugin() {
                 SqlType.INSERT to "INSERT INTO `Statistics`(" +
                         "`player_id`, `statistic`, " +
                         "`value`, `material`, `entity`) " +
-                        "VALUES (?, ?, ?, ?, ?)",
+                        "VALUES (?, ?, ?, ?, ?);",
                 SqlType.UPDATE to "UPDATE `Statistics`" +
                         "SET `value` = ? " +
                         "WHERE `player_id` = ?" +
-                        "AND `statistic` = ?"
+                        "AND `statistic` = ?;"
         )
         private var dataSource: HikariDataSource? = null
 
