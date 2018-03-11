@@ -123,6 +123,7 @@ class StatsDB : JavaPlugin() {
                 }
                 for (statement in statementMap.values) {
                     statement.executeBatch()
+                    this.commit()
                     statement.close()
                 }
                 this.close()
