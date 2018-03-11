@@ -199,7 +199,7 @@ class StatsDB : JavaPlugin() {
                         "`player_id`, `statistic`, " +
                         "`value`, `material`, `entity`) " +
                         "VALUES (?, ?, ?, ?, ?);",
-                SqlType.UPDATE to "UPDATE `Statistics`" +
+                SqlType.UPDATE to "UPDATE `Statistics` " +
                         "SET `value` = ? " +
                         "WHERE `player_id` = ?" +
                         "AND `statistic` = ?;"
