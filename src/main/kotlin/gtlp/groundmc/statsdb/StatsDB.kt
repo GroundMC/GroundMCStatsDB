@@ -16,6 +16,7 @@ class StatsDB : JavaPlugin() {
 
     private val syncLock = ReentrantLock()
     private var eventListener = EventListener()
+    private val statementMap by lazy { prepareStatements(connection) }
 
     override fun onEnable() {
         saveDefaultConfig()
@@ -68,21 +69,14 @@ class StatsDB : JavaPlugin() {
         }
         try {
 
-            val statementMap = prepareStatements(connection)
-
             val updates = statementMap[SqlType.UPDATE] ?: return
             Bukkit.getOnlinePlayers().forEach { player ->
                 val uuid = getBytesFromUUID(player)
                 for (stat in STATISTIC_LIST) {
-                    try {
-                        updates.setInt(1, player.getStatistic(stat))
-                        updates.setBytes(2, uuid)
-                        updates.setString(3, stat.name)
-                        updates.addBatch()
-                    } catch (e: SQLException) {
-                        e.printStackTrace()
-                    }
-
+                    updates.setInt(1, player.getStatistic(stat))
+                    updates.setBytes(2, uuid)
+                    updates.setString(3, stat.name)
+                    updates.addBatch()
                 }
             }
 
@@ -118,8 +112,7 @@ class StatsDB : JavaPlugin() {
                 insertStatement.addBatch()
             }
             statementMap.values.forEach {
-                logger.info("Updated ${it.executeBatch().size} statistics")
-                it.close()
+                it.executeUpdate()
             }
             connection.commit()
         } catch (e: Exception) {
