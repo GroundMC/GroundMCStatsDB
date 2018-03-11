@@ -114,9 +114,9 @@ class StatsDB : JavaPlugin() {
             }
             statementMap.values.forEach {
                 logger.info("Updated ${it.executeBatch().size} statistics")
-                conn.commit()
                 it.close()
             }
+            conn.commit()
             conn.close()
         } catch (e: Exception) {
             e.printStackTrace()
@@ -147,6 +147,7 @@ class StatsDB : JavaPlugin() {
         source.password = config.getString("database.password")
         source.isAutoCommit = false
         source.transactionIsolation = "TRANSACTION_READ_UNCOMMITTED"
+        source.maximumPoolSize = 1
         source.addDataSourceProperty("journal_mode", "WAL")
         source.addDataSourceProperty("rewriteBatchedStatements", true)
         source.addDataSourceProperty("cachePrepStmts", true)
