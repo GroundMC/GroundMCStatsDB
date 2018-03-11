@@ -156,7 +156,7 @@ class StatsDB : JavaPlugin() {
                 CROUCH_ONE_CM,
                 AVIATE_ONE_CM,
                 TIME_SINCE_DEATH)
-        private val statementStringMap = mapOf(
+        private val statementStringMap = linkedMapOf(
                 Type.UNTYPED to "DELETE FROM `Statistics` WHERE " +
                         "`player_id` = ? AND `statistic` = ?;",
                 Type.BLOCK to "DELETE FROM `Statistics` WHERE " +
