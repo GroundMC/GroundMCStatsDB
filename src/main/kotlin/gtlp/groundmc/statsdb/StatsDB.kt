@@ -113,7 +113,7 @@ class StatsDB : JavaPlugin() {
                 insertStatement.addBatch()
             }
             statementMap.values.forEach {
-                it.executeUpdate()
+                it.executeBatch()
             }
             connection.commit()
         } catch (e: Exception) {
