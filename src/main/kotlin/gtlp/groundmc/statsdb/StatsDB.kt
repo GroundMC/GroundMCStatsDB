@@ -54,14 +54,13 @@ class StatsDB : JavaPlugin() {
     }
 
     private fun synchronizeStats() {
+        if (syncLock.isLocked) {
+            return
+        }
+        if (!syncLock.tryLock()) {
+            return
+        }
         try {
-            if (syncLock.isLocked) {
-                return
-            }
-            if (!syncLock.tryLock()) {
-                return
-            }
-
             with(connection) {
 
                 val statementMap = prepareStatements(connection)
