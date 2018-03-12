@@ -3,7 +3,6 @@ package gtlp.groundmc.statsdb
 import com.google.common.collect.Maps
 import org.bukkit.Bukkit
 import org.bukkit.OfflinePlayer
-import org.bukkit.Statistic
 import org.bukkit.Statistic.*
 import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.scheduler.BukkitTask
@@ -139,7 +138,6 @@ class StatsDB : JavaPlugin() {
         } catch (e: SQLException) {
             e.printStackTrace()
         }
-
     }
 
     companion object {
@@ -186,27 +184,23 @@ class StatsDB : JavaPlugin() {
                         "AND `statistic` = ?;"
         )
 
-        internal fun getBytesFromUUID(player: OfflinePlayer): ByteArray {
-            val playerId = player.uniqueId
-            return ByteBuffer.wrap(ByteArray(16)).order(ByteOrder.BIG_ENDIAN)
-                    .putLong(playerId.mostSignificantBits)
-                    .putLong(playerId.leastSignificantBits).array()
-        }
+        internal fun getBytesFromUUID(player: OfflinePlayer) =
+                ByteBuffer.wrap(ByteArray(16)).order(ByteOrder.BIG_ENDIAN)
+                        .putLong(player.uniqueId.mostSignificantBits)
+                        .putLong(player.uniqueId.leastSignificantBits).array()
 
         @Throws(SQLException::class)
-        private fun prepareStatements(connection: Connection): Map<Enum<*>, PreparedStatement> {
-            val map = Maps.newHashMap<Enum<*>, PreparedStatement>()
-            for (type in Statistic.Type.values()) {
-                map[type] = connection.prepareStatement(
-                        statementStringMap[type])
-            }
-            for (type in SqlType.values()) {
-                map[type] = connection.prepareStatement(
-                        statementStringMap[type])
-            }
-
-            return map
-        }
+        private fun prepareStatements(connection: Connection) =
+                Maps.newHashMap<Enum<*>, PreparedStatement>().apply {
+                    for (type in Type.values()) {
+                        this[type] = connection.prepareStatement(
+                                statementStringMap[type])
+                    }
+                    for (type in SqlType.values()) {
+                        this[type] = connection.prepareStatement(
+                                statementStringMap[type])
+                    }
+                }
 
         internal lateinit var connection: Connection
     }

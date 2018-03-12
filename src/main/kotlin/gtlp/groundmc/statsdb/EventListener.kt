@@ -43,15 +43,17 @@ internal class EventListener : Listener {
         }
     }
 
+    private val selectStatistics by lazy {
+        StatsDB.connection.prepareStatement(
+                "SELECT * FROM `Statistics` WHERE `player_id` = ?")
+    }
+
     @EventHandler
     fun onJoin(event: PlayerJoinEvent) {
         val uuid = StatsDB.getBytesFromUUID(event.player)
         try {
-            val statement = StatsDB.connection.prepareStatement(
-                    "SELECT * FROM `Statistics`" + "WHERE `player_id` = ?"
-            )
-            statement.setBytes(1, uuid)
-            val rs = statement.executeQuery()
+            selectStatistics.setBytes(1, uuid)
+            val rs = selectStatistics.executeQuery()
             while (rs.next()) {
                 val statistic = Statistic.valueOf(rs.getString("statistic"))
                 when (statistic.type) {

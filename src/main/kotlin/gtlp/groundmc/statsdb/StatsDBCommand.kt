@@ -76,23 +76,21 @@ internal class StatsDBCommand(private val statsDB: StatsDB) : CommandExecutor, T
                     "SELECT `value` FROM `Statistics` " +
                             "WHERE `player_id` = ? " +
                             "AND `statistic` = ? ")
-            val connection = StatsDB.connection
             if (stat.isSubstatistic) {
-                if (sender is Player) {
-
-                    appendSubstatisticSQL(stat, builder)
-
-                    val statement = connection.prepareStatement(
-                            builder.toString())
-                    statement.setBytes(1, StatsDB.getBytesFromUUID(sender))
-                    statement.setString(2, stat.name)
-                    statement.setString(3, args[1])
-                    executeSendAndClose(sender, stat, statement)
+                if (sender !is Player) {
+                    return
                 }
-            } else {
+                appendSubstatisticSQL(stat, builder)
 
+                val statement = StatsDB.connection.prepareStatement(
+                        builder.toString())
+                statement.setBytes(1, StatsDB.getBytesFromUUID(sender))
+                statement.setString(2, stat.name)
+                statement.setString(3, args[1])
+                executeSendAndClose(sender, stat, statement)
+            } else {
                 val player = Bukkit.getOfflinePlayer(args[1])
-                val statement = connection.prepareStatement(
+                val statement = StatsDB.connection.prepareStatement(
                         builder.toString())
                 statement.setBytes(1, StatsDB.getBytesFromUUID(player))
                 statement.setString(2, stat.name)
@@ -117,29 +115,29 @@ internal class StatsDBCommand(private val statsDB: StatsDB) : CommandExecutor, T
         when (stat.type) {
             Statistic.Type.ITEM, Statistic.Type.BLOCK -> builder.append("AND `material` = ?")
             Statistic.Type.ENTITY -> builder.append("AND `entity` = ?")
-            else -> {
-            }
+            else -> Unit
         }
     }
 
     private fun selfStatistic(sender: CommandSender, args: Array<String>) {
         try {
             val stat = Statistic.valueOf(args[0])
-            if (sender is Player) {
-                val connection = StatsDB.connection
-                val statement = connection.prepareStatement(
-                        "SELECT `value` FROM `Statistics` " +
-                                "WHERE `player_id` = ?" +
-                                "AND `statistic` = ?"
-                )
-                statement.setBytes(1, StatsDB.getBytesFromUUID(sender))
-                statement.setString(2, stat.name)
-                executeSendAndClose(sender, stat, statement)
-                connection.close()
+            if (sender !is Player) {
+                return
             }
+            val connection = StatsDB.connection
+            val statement = connection.prepareStatement(
+                    "SELECT `value` FROM `Statistics` " +
+                            "WHERE `player_id` = ?" +
+                            "AND `statistic` = ?"
+            )
+            statement.setBytes(1, StatsDB.getBytesFromUUID(sender))
+            statement.setString(2, stat.name)
+            executeSendAndClose(sender, stat, statement)
         } catch (e: IllegalArgumentException) {
             sender.sendMessage("Unrecognized statistic")
         } catch (e: SQLException) {
+            sender.sendMessage("Error querying the statistic")
             e.printStackTrace()
         }
 
