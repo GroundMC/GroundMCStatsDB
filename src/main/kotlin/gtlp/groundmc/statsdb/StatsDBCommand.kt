@@ -105,7 +105,6 @@ internal class StatsDBCommand(private val statsDB: StatsDB) : CommandExecutor, T
                 result.close()
                 statement.close()
             }
-            connection.close()
         } catch (e: IllegalArgumentException) {
             sender.sendMessage("Unrecognized statistic")
         } catch (e: SQLException) {
