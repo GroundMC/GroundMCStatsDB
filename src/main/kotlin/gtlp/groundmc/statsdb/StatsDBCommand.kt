@@ -16,9 +16,8 @@ import java.util.*
 @Suppress("DEPRECATION")
 internal class StatsDBCommand(private val statsDB: StatsDB) : CommandExecutor, TabCompleter {
 
-    private fun startsWithIgnoreCase(candidate: String, prefix: String): Boolean {
-        return candidate.toLowerCase(Locale.ROOT).startsWith(prefix.toLowerCase(Locale.ROOT))
-    }
+    private fun startsWithIgnoreCase(candidate: String, prefix: String) =
+            candidate.toLowerCase(Locale.ROOT).startsWith(prefix.toLowerCase(Locale.ROOT))
 
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<String>): Boolean {
         Bukkit.getScheduler().runTaskAsynchronously(statsDB) {
@@ -167,62 +166,30 @@ internal class StatsDBCommand(private val statsDB: StatsDB) : CommandExecutor, T
         return null
     }
 
-    private fun getEntityNamesBeginningWith(begin: String): List<String> {
-        val list = ArrayList<String>(EntityType.values().size / 3)
-        for (entityType in EntityType.values()) {
-            val name = entityType.name
-            if (startsWithIgnoreCase(name, begin)) {
-                list.add(name)
-            }
-        }
-        return list
-    }
+    private fun getEntityNamesBeginningWith(begin: String) =
+            EntityType.values()
+                    .map { it.name }
+                    .filter { startsWithIgnoreCase(it, begin) }
 
-    private fun getItemNamesBeginningWith(beign: String): List<String> {
-        val list = ArrayList<String>()
-        for (material in Material.values()) {
-            if (!material.isBlock) {
-                val name = material.name
-                if (startsWithIgnoreCase(name, beign)) {
-                    list.add(name)
-                }
-            }
-        }
-        return list
-    }
+    private fun getItemNamesBeginningWith(begin: String) =
+            Material.values()
+                    .filterNot { it.isBlock }
+                    .map { it.name }
+                    .filter { startsWithIgnoreCase(it, begin) }
 
-    private fun getStatisticNameBeginningWith(begin: String): List<String> {
-        val list = ArrayList<String>(Statistic.values().size / 3)
-        for (statistic in Statistic.values()) {
-            val name = statistic.name
-            if (startsWithIgnoreCase(name, begin)) {
-                list.add(name)
-            }
-        }
-        return list
-    }
+    private fun getStatisticNameBeginningWith(begin: String) =
+            Statistic.values()
+                    .map { it.name }
+                    .filter { startsWithIgnoreCase(it, begin) }
 
-    private fun getBlockNamesBeginningWith(begin: String): List<String> {
-        val list = ArrayList<String>()
-        for (material in Material.values()) {
-            if (material.isBlock) {
-                val name = material.name
-                if (startsWithIgnoreCase(name, begin)) {
-                    list.add(name)
-                }
-            }
-        }
-        return list
-    }
+    private fun getBlockNamesBeginningWith(begin: String) =
+            Material.values()
+                    .filter { it.isBlock }
+                    .map { it.name }
+                    .filter { startsWithIgnoreCase(it, begin) }
 
-    private fun getPlayerNamesBeginningWith(begin: String): List<String> {
-        val list = ArrayList<String>(Bukkit.getOnlinePlayers().size / 3)
-        for (player in Bukkit.getOnlinePlayers()) {
-            val name = player.displayName
-            if (startsWithIgnoreCase(name, begin)) {
-                list.add(name)
-            }
-        }
-        return list
-    }
+    private fun getPlayerNamesBeginningWith(begin: String) =
+            Bukkit.getOnlinePlayers()
+                    .map { it.displayName }
+                    .filter { startsWithIgnoreCase(it, begin) }
 }
