@@ -6,6 +6,7 @@ import org.bukkit.OfflinePlayer
 import org.bukkit.Statistic
 import org.bukkit.Statistic.*
 import org.bukkit.plugin.java.JavaPlugin
+import org.bukkit.scheduler.BukkitTask
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.sql.*
@@ -17,6 +18,7 @@ class StatsDB : JavaPlugin() {
     private val syncLock = ReentrantLock()
     private var eventListener = EventListener()
     private val statementMap by lazy { prepareStatements(connection) }
+    private lateinit var task: BukkitTask
 
     override fun onEnable() {
         saveDefaultConfig()
@@ -38,6 +40,7 @@ class StatsDB : JavaPlugin() {
     }
 
     override fun onDisable() {
+        task.cancel()
         synchronizeStats()
         Companion.connection.close()
     }
@@ -54,8 +57,8 @@ class StatsDB : JavaPlugin() {
     }
 
     private fun registerTasks() {
-        Bukkit.getScheduler().runTaskTimerAsynchronously(this,
-                { this.synchronizeStats() },
+        task = Bukkit.getScheduler().runTaskTimerAsynchronously(this,
+                this::synchronizeStats,
                 config.getLong("server.sync_interval"),
                 config.getLong("server.sync_interval"))
     }
@@ -68,49 +71,7 @@ class StatsDB : JavaPlugin() {
             return
         }
         try {
-
-            val updates = statementMap[SqlType.UPDATE] ?: return
-            Bukkit.getOnlinePlayers().forEach { player ->
-                val uuid = getBytesFromUUID(player)
-                for (stat in STATISTIC_LIST) {
-                    updates.setInt(1, player.getStatistic(stat))
-                    updates.setBytes(2, uuid)
-                    updates.setString(3, stat.name)
-                    updates.addBatch()
-                }
-            }
-
-            val insertStatement = statementMap[SqlType.INSERT]
-                    ?: return
-
-            while (eventListener.statisticsQueue.peek() != null) {
-                val stat = eventListener.statisticsQueue.poll()
-                val deleteStatement = statementMap[stat.statistic.type]
-                        ?: return
-                deleteStatement.setBytes(1, stat.uuid)
-                deleteStatement.setString(2, stat.statistic.name)
-                if (stat.material != null) {
-                    deleteStatement.setString(3, stat.material)
-                } else if (stat.entity != null) {
-                    deleteStatement.setString(3, stat.entity)
-                }
-                deleteStatement.addBatch()
-
-                insertStatement.setBytes(1, stat.uuid)
-                insertStatement.setString(2, stat.statistic.name)
-                insertStatement.setInt(3, stat.value)
-                if (stat.material != null) {
-                    insertStatement.setString(4, stat.material)
-                } else {
-                    insertStatement.setNull(4, Types.VARCHAR)
-                }
-                if (stat.entity != null) {
-                    insertStatement.setString(5, stat.entity)
-                } else {
-                    insertStatement.setNull(5, Types.VARCHAR)
-                }
-                insertStatement.addBatch()
-            }
+            if (!addBatches()) return
             statementMap.values.forEach {
                 it.executeBatch()
             }
@@ -120,6 +81,50 @@ class StatsDB : JavaPlugin() {
         } finally {
             syncLock.unlock()
         }
+    }
+
+    private fun addBatches(): Boolean {
+        val updates = statementMap[SqlType.UPDATE] ?: return false
+        Bukkit.getOnlinePlayers().forEach { player ->
+            val uuid = getBytesFromUUID(player)
+            for (stat in STATISTIC_LIST) {
+                updates.setInt(1, player.getStatistic(stat))
+                updates.setBytes(2, uuid)
+                updates.setString(3, stat.name)
+                updates.addBatch()
+            }
+        }
+
+        val insertStatement = statementMap[SqlType.INSERT]
+                ?: return false
+
+        while (eventListener.statisticsQueue.peek() != null) {
+            val stat = eventListener.statisticsQueue.poll()
+            val deleteStatement = statementMap[stat.statistic.type]
+                    ?: return false
+            deleteStatement.setBytes(1, stat.uuid)
+            deleteStatement.setString(2, stat.statistic.name)
+            if (stat.material != null) {
+                deleteStatement.setString(3, stat.material)
+            } else if (stat.entity != null) {
+                deleteStatement.setString(3, stat.entity)
+            }
+            deleteStatement.addBatch()
+
+            insertStatement.setBytes(1, stat.uuid)
+            insertStatement.setString(2, stat.statistic.name)
+            insertStatement.setInt(3, stat.value)
+            when {
+                stat.material != null -> insertStatement.setString(4, stat.material)
+                else -> insertStatement.setNull(4, Types.VARCHAR)
+            }
+            when {
+                stat.entity != null -> insertStatement.setString(5, stat.entity)
+                else -> insertStatement.setNull(5, Types.VARCHAR)
+            }
+            insertStatement.addBatch()
+        }
+        return true
     }
 
     private fun createTable() {
