@@ -191,7 +191,7 @@ class StatsDB : JavaPlugin() {
 
         @Throws(SQLException::class)
         private fun prepareStatements(connection: Connection) =
-                Maps.newHashMap<Enum<*>, PreparedStatement>().apply {
+                Maps.newLinkedHashMap<Enum<*>, PreparedStatement>().apply {
                     for (type in Type.values()) {
                         this[type] = connection.prepareStatement(
                                 statementStringMap[type])
