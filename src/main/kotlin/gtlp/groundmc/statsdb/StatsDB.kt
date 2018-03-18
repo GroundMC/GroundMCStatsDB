@@ -28,7 +28,7 @@ class StatsDB : JavaPlugin() {
                     put("password", config.getString("database.password"))
                     put("journal_mode", "wal")
                 }).apply {
-            transactionIsolation = Connection.TRANSACTION_READ_UNCOMMITTED
+            transactionIsolation = Connection.TRANSACTION_SERIALIZABLE
             this.autoCommit = false
         }
 
