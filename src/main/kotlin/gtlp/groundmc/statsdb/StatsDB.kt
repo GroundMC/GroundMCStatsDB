@@ -24,8 +24,8 @@ class StatsDB : JavaPlugin() {
 
         connection = DriverManager.getConnection(config.getString("database.url"),
                 Properties().apply {
-                    put("user", config.getString("database.username"))
-                    put("password", config.getString("database.password"))
+                    put("user", config.getString("database.username", ""))
+                    put("password", config.getString("database.password", ""))
                     put("journal_mode", "wal")
                 }).apply {
             transactionIsolation = Connection.TRANSACTION_SERIALIZABLE
