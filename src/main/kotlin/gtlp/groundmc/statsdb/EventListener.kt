@@ -1,6 +1,7 @@
 package gtlp.groundmc.statsdb
 
 import com.google.common.collect.Queues
+import kotlinx.coroutines.experimental.async
 import org.bukkit.Material
 import org.bukkit.Statistic
 import org.bukkit.entity.EntityType
@@ -50,49 +51,53 @@ internal class EventListener : Listener {
 
     @EventHandler
     fun onJoin(event: PlayerJoinEvent) {
-        val uuid = StatsDB.getBytesFromUUID(event.player)
-        try {
-            selectStatistics.setBytes(1, uuid)
-            val rs = selectStatistics.executeQuery()
-            while (rs.next()) {
-                val statistic = Statistic.valueOf(rs.getString("statistic"))
-                when (statistic.type) {
-                    Statistic.Type.UNTYPED -> event.player.setStatistic(statistic, rs.getInt("value"))
-                    Statistic.Type.ENTITY -> {
-                        val entity = EntityType.valueOf(rs.getString("entity"))
-                        event.player.setStatistic(statistic, entity, rs.getInt("value"))
-                    }
-                    Statistic.Type.BLOCK, Statistic.Type.ITEM -> {
-                        val material = Material.valueOf(rs.getString("material"))
-                        event.player.setStatistic(statistic, material, rs.getInt("value"))
-                    }
-                    null -> {
+        async {
+            val uuid = StatsDB.getBytesFromUUID(event.player)
+            try {
+                selectStatistics.setBytes(1, uuid)
+                val rs = selectStatistics.executeQuery()
+                while (rs.next()) {
+                    val statistic = Statistic.valueOf(rs.getString("statistic"))
+                    when (statistic.type) {
+                        Statistic.Type.UNTYPED -> event.player.setStatistic(statistic, rs.getInt("value"))
+                        Statistic.Type.ENTITY -> {
+                            val entity = EntityType.valueOf(rs.getString("entity"))
+                            event.player.setStatistic(statistic, entity, rs.getInt("value"))
+                        }
+                        Statistic.Type.BLOCK, Statistic.Type.ITEM -> {
+                            val material = Material.valueOf(rs.getString("material"))
+                            event.player.setStatistic(statistic, material, rs.getInt("value"))
+                        }
+                        null -> {
+                        }
                     }
                 }
+                rs.close()
+            } catch (e: SQLException) {
+                e.printStackTrace()
             }
-            rs.close()
-        } catch (e: SQLException) {
-            e.printStackTrace()
-        }
 
-        StatsDB.STATISTIC_LIST.forEach { stat ->
-            statisticsQueue.add(StatisticsObject(
-                    uuid,
-                    stat, null, null,
-                    event.player.getStatistic(stat)
-            ))
+            StatsDB.STATISTIC_LIST.forEach { stat ->
+                statisticsQueue.add(StatisticsObject(
+                        uuid,
+                        stat, null, null,
+                        event.player.getStatistic(stat)
+                ))
+            }
         }
     }
 
     @EventHandler
     fun onLeave(event: PlayerQuitEvent) {
-        val uuid = StatsDB.getBytesFromUUID(event.player)
-        StatsDB.STATISTIC_LIST.forEach { stat ->
-            statisticsQueue.add(StatisticsObject(
-                    uuid,
-                    stat, null, null,
-                    event.player.getStatistic(stat)
-            ))
+        async {
+            val uuid = StatsDB.getBytesFromUUID(event.player)
+            StatsDB.STATISTIC_LIST.forEach { stat ->
+                statisticsQueue.add(StatisticsObject(
+                        uuid,
+                        stat, null, null,
+                        event.player.getStatistic(stat)
+                ))
+            }
         }
     }
 }
