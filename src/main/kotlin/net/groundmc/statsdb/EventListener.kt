@@ -1,4 +1,4 @@
-package gtlp.groundmc.statsdb
+package net.groundmc.statsdb
 
 import com.google.common.collect.Queues
 import kotlinx.coroutines.experimental.async

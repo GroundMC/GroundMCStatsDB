@@ -1,4 +1,4 @@
-package gtlp.groundmc.statsdb
+package net.groundmc.statsdb
 
 import com.google.common.collect.Maps
 import org.bukkit.Bukkit
@@ -41,7 +41,7 @@ class StatsDB : JavaPlugin() {
     override fun onDisable() {
         task.cancel()
         synchronizeStats()
-        Companion.connection.close()
+        connection.close()
     }
 
     private fun registerCommand() {
@@ -128,7 +128,7 @@ class StatsDB : JavaPlugin() {
 
     private fun createTable() {
         try {
-            Companion.connection.createStatement().execute("CREATE TABLE " +
+            connection.createStatement().execute("CREATE TABLE " +
                     "IF NOT EXISTS `Statistics`(" +
                     "`player_id` BINARY(16) NOT NULL ," +
                     "`statistic` VARCHAR(255) NOT NULL ," +

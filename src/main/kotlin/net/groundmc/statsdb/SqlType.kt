@@ -1,4 +1,4 @@
-package gtlp.groundmc.statsdb
+package net.groundmc.statsdb
 
 internal enum class SqlType {
     INSERT,

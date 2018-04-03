@@ -1,4 +1,4 @@
-package gtlp.groundmc.statsdb
+package net.groundmc.statsdb
 
 import org.bukkit.Bukkit
 import org.bukkit.Material
