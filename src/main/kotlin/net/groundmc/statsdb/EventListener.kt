@@ -21,7 +21,7 @@ internal class EventListener : Listener {
     fun onStatisticIncrement(event: PlayerStatisticIncrementEvent) {
         val uuid = StatsDB.getBytesFromUUID(event.player)
 
-        val statObject = statisticsQueue.stream()
+        val statObject = statisticsQueue.asSequence()
                 .filter { (uuid1, statistic, material, entity) ->
                     Arrays.equals(uuid1, uuid) &&
                             event.statistic !=
@@ -29,10 +29,10 @@ internal class EventListener : Listener {
                             event.material != null && material == event.material.name &&
                             event.entityType != null && entity == event.entityType.name
                 }
-                .findFirst()
+                .firstOrNull()
 
-        if (statObject.isPresent) {
-            statObject.get().value = event.newValue
+        if (statObject != null) {
+            statObject.value = event.newValue
         } else {
             statisticsQueue.add(StatisticsObject(
                     uuid,

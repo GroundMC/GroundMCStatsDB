@@ -167,29 +167,34 @@ internal class StatsDBCommand(private val statsDB: StatsDB) : CommandExecutor, T
     }
 
     private fun getEntityNamesBeginningWith(begin: String) =
-            EntityType.values()
+            EntityType.values().asSequence()
                     .map { it.name }
                     .filter { startsWithIgnoreCase(it, begin) }
+                    .toList()
 
     private fun getItemNamesBeginningWith(begin: String) =
-            Material.values()
+            Material.values().asSequence()
                     .filterNot { it.isBlock }
                     .map { it.name }
                     .filter { startsWithIgnoreCase(it, begin) }
+                    .toList()
 
     private fun getStatisticNameBeginningWith(begin: String) =
-            Statistic.values()
+            Statistic.values().asSequence()
                     .map { it.name }
                     .filter { startsWithIgnoreCase(it, begin) }
+                    .toList()
 
     private fun getBlockNamesBeginningWith(begin: String) =
-            Material.values()
+            Material.values().asSequence()
                     .filter { it.isBlock }
                     .map { it.name }
                     .filter { startsWithIgnoreCase(it, begin) }
+                    .toList()
 
     private fun getPlayerNamesBeginningWith(begin: String) =
-            Bukkit.getOnlinePlayers()
+            Bukkit.getOnlinePlayers().asSequence()
                     .map { it.displayName }
                     .filter { startsWithIgnoreCase(it, begin) }
+                    .toList()
 }
