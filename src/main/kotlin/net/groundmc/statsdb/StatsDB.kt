@@ -21,7 +21,6 @@ class StatsDB : JavaPlugin() {
 
     override fun onEnable() {
         saveDefaultConfig()
-
         connection = DriverManager.getConnection(config.getString("database.url"),
                 Properties().apply {
                     put("user", config.getString("database.username", ""))
@@ -29,7 +28,7 @@ class StatsDB : JavaPlugin() {
                     put("journal_mode", "wal")
                 }).apply {
             transactionIsolation = Connection.TRANSACTION_SERIALIZABLE
-            this.autoCommit = false
+            autoCommit = false
         }
 
         createTable()
@@ -84,11 +83,10 @@ class StatsDB : JavaPlugin() {
 
     private fun addBatches(): Boolean {
         val updates = statementMap[SqlType.UPDATE] ?: return false
-        Bukkit.getOnlinePlayers().forEach { player ->
-            val uuid = getBytesFromUUID(player)
+        Bukkit.getOnlinePlayers().forEach {
             for (stat in STATISTIC_LIST) {
-                updates.setInt(1, player.getStatistic(stat))
-                updates.setBytes(2, uuid)
+                updates.setInt(1, it.getStatistic(stat))
+                updates.setBytes(2, getBytesFromUUID(it))
                 updates.setString(3, stat.name)
                 updates.addBatch()
             }
@@ -104,9 +102,10 @@ class StatsDB : JavaPlugin() {
             deleteStatement.setBytes(1, stat.uuid)
             deleteStatement.setString(2, stat.statistic.name)
             if (stat.material != null) {
-                deleteStatement.setString(3, stat.material)
-            } else if (stat.entity != null) {
-                deleteStatement.setString(3, stat.entity)
+                deleteStatement.setString(3, stat.material.name)
+            }
+            if (stat.entity != null) {
+                deleteStatement.setString(3, stat.entity.name)
             }
             deleteStatement.addBatch()
 
@@ -114,11 +113,11 @@ class StatsDB : JavaPlugin() {
             insertStatement.setString(2, stat.statistic.name)
             insertStatement.setInt(3, stat.value)
             when {
-                stat.material != null -> insertStatement.setString(4, stat.material)
+                stat.material != null -> insertStatement.setString(4, stat.material.name)
                 else -> insertStatement.setNull(4, Types.VARCHAR)
             }
             when {
-                stat.entity != null -> insertStatement.setString(5, stat.entity)
+                stat.entity != null -> insertStatement.setString(5, stat.entity.name)
                 else -> insertStatement.setNull(5, Types.VARCHAR)
             }
             insertStatement.addBatch()
@@ -159,6 +158,7 @@ class StatsDB : JavaPlugin() {
                 CROUCH_ONE_CM,
                 AVIATE_ONE_CM,
                 TIME_SINCE_DEATH)
+
         private val statementStringMap = linkedMapOf(
                 Type.UNTYPED to "DELETE FROM `Statistics` WHERE " +
                         "`player_id` = ? AND `statistic` = ?;",

@@ -1,10 +1,12 @@
 package net.groundmc.statsdb
 
+import org.bukkit.Material
 import org.bukkit.Statistic
+import org.bukkit.entity.EntityType
 import java.util.*
 
 internal data class StatisticsObject(val uuid: ByteArray, val statistic: Statistic,
-                                     val material: String?, val entity: String?,
+                                     val material: Material?, val entity: EntityType?,
                                      var value: Int) {
 
     override fun equals(other: Any?): Boolean {

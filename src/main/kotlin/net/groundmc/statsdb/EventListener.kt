@@ -22,23 +22,21 @@ internal class EventListener : Listener {
         val uuid = StatsDB.getBytesFromUUID(event.player)
 
         val statObject = statisticsQueue.asSequence()
-                .filter { (uuid1, statistic, material, entity) ->
+                .firstOrNull { (uuid1, statistic, material, entity) ->
                     Arrays.equals(uuid1, uuid) &&
-                            event.statistic !=
-                            null && statistic == event.statistic &&
-                            event.material != null && material == event.material.name &&
-                            event.entityType != null && entity == event.entityType.name
+                            statistic == event.statistic &&
+                            event.material == material &&
+                            event.entityType == entity
                 }
-                .firstOrNull()
 
-        if (statObject != null) {
-            statObject.value = event.newValue
+        if (statObject.isPresent) {
+            statObject.get().value = event.newValue
         } else {
             statisticsQueue.add(StatisticsObject(
                     uuid,
                     event.statistic,
-                    if (event.material != null) event.material.name else null,
-                    if (event.entityType != null) event.entityType.name else null,
+                    event.material,
+                    event.entityType,
                     event.newValue
             ))
         }
