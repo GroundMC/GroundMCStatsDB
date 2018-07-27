@@ -38,7 +38,7 @@ internal class StatsDBCommand(private val statsDB: StatsDB) : CommandExecutor, T
                     "SELECT `value` FROM `Statistics` " +
                             "WHERE `player_id` = ? " +
                             "AND `statistic` = ? ")
-            val connection = StatsDB.connection
+            val connection = statsDB.connection ?: return
             if (sender is Player) {
 
                 val player = Bukkit.getOfflinePlayer(args[2])
@@ -75,13 +75,14 @@ internal class StatsDBCommand(private val statsDB: StatsDB) : CommandExecutor, T
                     "SELECT `value` FROM `Statistics` " +
                             "WHERE `player_id` = ? " +
                             "AND `statistic` = ? ")
+            val connection = statsDB.connection ?: return
             if (stat.isSubstatistic) {
                 if (sender !is Player) {
                     return
                 }
                 appendSubstatisticSQL(stat, builder)
 
-                val statement = StatsDB.connection.prepareStatement(
+                val statement = connection.prepareStatement(
                         builder.toString())
                 statement.setBytes(1, StatsDB.getBytesFromUUID(sender))
                 statement.setString(2, stat.name)
@@ -89,7 +90,7 @@ internal class StatsDBCommand(private val statsDB: StatsDB) : CommandExecutor, T
                 executeSendAndClose(sender, stat, statement)
             } else {
                 val player = Bukkit.getOfflinePlayer(args[1])
-                val statement = StatsDB.connection.prepareStatement(
+                val statement = connection.prepareStatement(
                         builder.toString())
                 statement.setBytes(1, StatsDB.getBytesFromUUID(player))
                 statement.setString(2, stat.name)
@@ -124,7 +125,7 @@ internal class StatsDBCommand(private val statsDB: StatsDB) : CommandExecutor, T
             if (sender !is Player) {
                 return
             }
-            val connection = StatsDB.connection
+            val connection = statsDB.connection ?: return
             val statement = connection.prepareStatement(
                     "SELECT `value` FROM `Statistics` " +
                             "WHERE `player_id` = ?" +

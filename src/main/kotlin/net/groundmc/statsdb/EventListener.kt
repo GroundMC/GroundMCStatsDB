@@ -10,10 +10,11 @@ import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.event.player.PlayerStatisticIncrementEvent
+import java.sql.PreparedStatement
 import java.sql.SQLException
 import java.util.*
 
-internal class EventListener : Listener {
+internal class EventListener(private val statsDb: StatsDB) : Listener {
 
     val statisticsQueue: Queue<StatisticsObject> = Queues.newConcurrentLinkedQueue()
 
@@ -29,8 +30,8 @@ internal class EventListener : Listener {
                             event.entityType == entity
                 }
 
-        if (statObject.isPresent) {
-            statObject.get().value = event.newValue
+        if (statObject != null) {
+            statObject.value = event.newValue
         } else {
             statisticsQueue.add(StatisticsObject(
                     uuid,
@@ -42,8 +43,10 @@ internal class EventListener : Listener {
         }
     }
 
-    private val selectStatistics by lazy {
-        StatsDB.connection.prepareStatement(
+    private val selectStatistics: PreparedStatement
+        get() {
+            val connection = statsDb.connection ?: throw IllegalStateException()
+            return connection.prepareStatement(
                 "SELECT * FROM `Statistics` WHERE `player_id` = ?")
     }
 

@@ -6,6 +6,7 @@ import org.bukkit.OfflinePlayer
 import org.bukkit.Statistic.*
 import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.scheduler.BukkitTask
+import java.net.ConnectException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.sql.*
@@ -15,21 +16,24 @@ import java.util.concurrent.locks.ReentrantLock
 class StatsDB : JavaPlugin() {
 
     private val syncLock = ReentrantLock()
-    private var eventListener = EventListener()
+    private var eventListener = EventListener(this)
     private val statementMap by lazy { prepareStatements(connection) }
     private lateinit var task: BukkitTask
 
+    internal var connection: Connection? = null
+        get() {
+            if (field == null || field?.isValid(5) != true) {
+                field = buildConnection()
+                statementMap.clear()
+                statementMap.putAll(prepareStatements(field))
+            }
+            return field
+        }
+
     override fun onEnable() {
         saveDefaultConfig()
-        connection = DriverManager.getConnection(config.getString("database.url"),
-                Properties().apply {
-                    put("user", config.getString("database.username", ""))
-                    put("password", config.getString("database.password", ""))
-                    put("journal_mode", "wal")
-                }).apply {
-            transactionIsolation = Connection.TRANSACTION_SERIALIZABLE
-            autoCommit = false
-        }
+
+        connection = buildConnection() ?: throw ConnectException("Couldn't connect to database!")
 
         createTable()
         registerTasks()
@@ -37,10 +41,22 @@ class StatsDB : JavaPlugin() {
         registerCommand()
     }
 
+    private fun buildConnection(): Connection? {
+        return DriverManager.getConnection(config.getString("database.url"),
+                Properties().apply {
+                    put("user", config.getString("database.username", ""))
+                    put("password", config.getString("database.password", ""))
+                    put("journal_mode", "wal")
+                }).apply {
+            transactionIsolation = Connection.TRANSACTION_SERIALIZABLE
+            this.autoCommit = false
+        }
+    }
+
     override fun onDisable() {
         task.cancel()
         synchronizeStats()
-        connection.close()
+        connection?.close()
     }
 
     private fun registerCommand() {
@@ -73,7 +89,7 @@ class StatsDB : JavaPlugin() {
             statementMap.values.forEach {
                 it.executeBatch()
             }
-            connection.commit()
+            connection?.commit()
         } catch (e: Exception) {
             e.printStackTrace()
         } finally {
@@ -83,10 +99,11 @@ class StatsDB : JavaPlugin() {
 
     private fun addBatches(): Boolean {
         val updates = statementMap[SqlType.UPDATE] ?: return false
-        Bukkit.getOnlinePlayers().forEach {
+        Bukkit.getOnlinePlayers().forEach { player ->
+            val uuid = getBytesFromUUID(player)
             for (stat in STATISTIC_LIST) {
-                updates.setInt(1, it.getStatistic(stat))
-                updates.setBytes(2, getBytesFromUUID(it))
+                updates.setInt(1, player.getStatistic(stat))
+                updates.setBytes(2, uuid)
                 updates.setString(3, stat.name)
                 updates.addBatch()
             }
@@ -103,8 +120,7 @@ class StatsDB : JavaPlugin() {
             deleteStatement.setString(2, stat.statistic.name)
             if (stat.material != null) {
                 deleteStatement.setString(3, stat.material.name)
-            }
-            if (stat.entity != null) {
+            } else if (stat.entity != null) {
                 deleteStatement.setString(3, stat.entity.name)
             }
             deleteStatement.addBatch()
@@ -127,7 +143,7 @@ class StatsDB : JavaPlugin() {
 
     private fun createTable() {
         try {
-            connection.createStatement().execute("CREATE TABLE " +
+            connection?.createStatement()?.execute("CREATE TABLE " +
                     "IF NOT EXISTS `Statistics`(" +
                     "`player_id` BINARY(16) NOT NULL ," +
                     "`statistic` VARCHAR(255) NOT NULL ," +
@@ -158,7 +174,6 @@ class StatsDB : JavaPlugin() {
                 CROUCH_ONE_CM,
                 AVIATE_ONE_CM,
                 TIME_SINCE_DEATH)
-
         private val statementStringMap = linkedMapOf(
                 Type.UNTYPED to "DELETE FROM `Statistics` WHERE " +
                         "`player_id` = ? AND `statistic` = ?;",
@@ -190,18 +205,18 @@ class StatsDB : JavaPlugin() {
                         .putLong(player.uniqueId.leastSignificantBits).array()
 
         @Throws(SQLException::class)
-        private fun prepareStatements(connection: Connection) =
-                Maps.newLinkedHashMap<Enum<*>, PreparedStatement>().apply {
-                    for (type in Type.values()) {
-                        this[type] = connection.prepareStatement(
-                                statementStringMap[type])
-                    }
-                    for (type in SqlType.values()) {
-                        this[type] = connection.prepareStatement(
-                                statementStringMap[type])
-                    }
+        private fun prepareStatements(connection: Connection?): MutableMap<Enum<*>, PreparedStatement> {
+            if (connection == null) return Maps.newLinkedHashMap<Enum<*>, PreparedStatement>()
+            return Maps.newLinkedHashMap<Enum<*>, PreparedStatement>().apply {
+                for (type in Type.values()) {
+                    this[type] = connection.prepareStatement(
+                            statementStringMap[type])
                 }
-
-        internal lateinit var connection: Connection
+                for (type in SqlType.values()) {
+                    this[type] = connection.prepareStatement(
+                            statementStringMap[type])
+                }
+            }
+        }
     }
 }
