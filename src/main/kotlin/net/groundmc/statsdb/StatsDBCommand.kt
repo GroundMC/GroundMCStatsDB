@@ -38,7 +38,7 @@ internal class StatsDBCommand(private val statsDB: StatsDB) : CommandExecutor, T
                     "SELECT `value` FROM `Statistics` " +
                             "WHERE `player_id` = ? " +
                             "AND `statistic` = ? ")
-            val connection = statsDB.connection ?: return
+            val connection = statsDB.getConnection() ?: return
             if (sender is Player) {
 
                 val player = Bukkit.getOfflinePlayer(args[2])
@@ -75,7 +75,7 @@ internal class StatsDBCommand(private val statsDB: StatsDB) : CommandExecutor, T
                     "SELECT `value` FROM `Statistics` " +
                             "WHERE `player_id` = ? " +
                             "AND `statistic` = ? ")
-            val connection = statsDB.connection ?: return
+            val connection = statsDB.getConnection() ?: return
             if (stat.isSubstatistic) {
                 if (sender !is Player) {
                     return
@@ -125,7 +125,7 @@ internal class StatsDBCommand(private val statsDB: StatsDB) : CommandExecutor, T
             if (sender !is Player) {
                 return
             }
-            val connection = statsDB.connection ?: return
+            val connection = statsDB.getConnection() ?: return
             val statement = connection.prepareStatement(
                     "SELECT `value` FROM `Statistics` " +
                             "WHERE `player_id` = ?" +

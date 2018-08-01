@@ -1,39 +1,45 @@
 package net.groundmc.statsdb
 
 import com.google.common.collect.Maps
+import com.zaxxer.hikari.HikariDataSource
 import org.bukkit.Bukkit
 import org.bukkit.OfflinePlayer
 import org.bukkit.Statistic.*
 import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.scheduler.BukkitTask
-import java.net.ConnectException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.sql.*
-import java.util.*
+import java.sql.Connection
+import java.sql.PreparedStatement
+import java.sql.SQLException
+import java.sql.Types
 import java.util.concurrent.locks.ReentrantLock
+import javax.sql.DataSource
 
 class StatsDB : JavaPlugin() {
 
     private val syncLock = ReentrantLock()
     private var eventListener = EventListener(this)
-    private val statementMap by lazy { prepareStatements(connection) }
+    private val statementMap by lazy { prepareStatements(getConnection()) }
     private lateinit var task: BukkitTask
 
-    internal var connection: Connection? = null
-        get() {
-            if (field == null || field?.isValid(5) != true) {
-                field = buildConnection()
-                statementMap.clear()
-                statementMap.putAll(prepareStatements(field))
-            }
-            return field
-        }
+    private lateinit var datasource: DataSource
+
+    internal fun getConnection() = datasource.connection
 
     override fun onEnable() {
         saveDefaultConfig()
 
-        connection = buildConnection() ?: throw ConnectException("Couldn't connect to database!")
+        datasource = HikariDataSource().apply {
+            jdbcUrl = config.getString("database.url")
+                    .replace("\$dataFolder", dataFolder.absolutePath)
+            driverClassName = config.getString("database.driver")
+            username = config.getString("database.username", "")
+            password = config.getString("database.password", "")
+            addDataSourceProperty("journal_mode", "wal")
+            transactionIsolation = "TRANSACTION_SERIALIZABLE"
+            isAutoCommit = false
+        }
 
         createTable()
         registerTasks()
@@ -41,22 +47,9 @@ class StatsDB : JavaPlugin() {
         registerCommand()
     }
 
-    private fun buildConnection(): Connection? {
-        return DriverManager.getConnection(config.getString("database.url"),
-                Properties().apply {
-                    put("user", config.getString("database.username", ""))
-                    put("password", config.getString("database.password", ""))
-                    put("journal_mode", "wal")
-                }).apply {
-            transactionIsolation = Connection.TRANSACTION_SERIALIZABLE
-            this.autoCommit = false
-        }
-    }
-
     override fun onDisable() {
         task.cancel()
         synchronizeStats()
-        connection?.close()
     }
 
     private fun registerCommand() {
@@ -89,7 +82,7 @@ class StatsDB : JavaPlugin() {
             statementMap.values.forEach {
                 it.executeBatch()
             }
-            connection?.commit()
+            getConnection().commit()
         } catch (e: Exception) {
             e.printStackTrace()
         } finally {
@@ -143,7 +136,7 @@ class StatsDB : JavaPlugin() {
 
     private fun createTable() {
         try {
-            connection?.createStatement()?.execute("CREATE TABLE " +
+            getConnection().createStatement().execute("CREATE TABLE " +
                     "IF NOT EXISTS `Statistics`(" +
                     "`player_id` BINARY(16) NOT NULL ," +
                     "`statistic` VARCHAR(255) NOT NULL ," +
@@ -205,8 +198,7 @@ class StatsDB : JavaPlugin() {
                         .putLong(player.uniqueId.leastSignificantBits).array()
 
         @Throws(SQLException::class)
-        private fun prepareStatements(connection: Connection?): MutableMap<Enum<*>, PreparedStatement> {
-            if (connection == null) return Maps.newLinkedHashMap<Enum<*>, PreparedStatement>()
+        private fun prepareStatements(connection: Connection): MutableMap<Enum<*>, PreparedStatement> {
             return Maps.newLinkedHashMap<Enum<*>, PreparedStatement>().apply {
                 for (type in Type.values()) {
                     this[type] = connection.prepareStatement(

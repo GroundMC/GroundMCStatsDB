@@ -45,10 +45,11 @@ internal class EventListener(private val statsDb: StatsDB) : Listener {
 
     private val selectStatistics: PreparedStatement
         get() {
-            val connection = statsDb.connection ?: throw IllegalStateException()
+            val connection = statsDb.getConnection()
+                    ?: throw IllegalStateException()
             return connection.prepareStatement(
-                "SELECT * FROM `Statistics` WHERE `player_id` = ?")
-    }
+                    "SELECT * FROM `Statistics` WHERE `player_id` = ?")
+        }
 
     @EventHandler
     fun onJoin(event: PlayerJoinEvent) {
