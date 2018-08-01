@@ -22,6 +22,14 @@
                 https://hub.spigotmc.org/nexus/content/repositories/snapshots/
             </url>
         </repository>
+        <repository>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <id>bintray-kotlin-exposed</id>
+            <name>bintray</name>
+            <url>https://dl.bintray.com/kotlin/exposed</url>
+        </repository>
     </repositories>
 
     <dependencies>
