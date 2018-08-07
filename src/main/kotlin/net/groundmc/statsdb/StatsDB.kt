@@ -20,7 +20,6 @@ class StatsDB : JavaPlugin() {
 
     private val syncLock = ReentrantLock()
     private var eventListener = EventListener(this)
-    private val statementMap by lazy { prepareStatements(getConnection()) }
     private lateinit var task: BukkitTask
 
     private lateinit var datasource: DataSource
@@ -78,11 +77,20 @@ class StatsDB : JavaPlugin() {
             return
         }
         try {
-            if (!addBatches()) return
-            statementMap.values.forEach {
-                it.executeBatch()
+            with(getConnection()) {
+                val savepoint = setSavepoint()
+                val statementMap = prepareStatements(this)
+                if (!addBatches(statementMap)) {
+                    this.rollback(savepoint)
+                    return
+                }
+                statementMap.values.forEach {
+                    it.executeBatch()
+                }
+                commit()
+                releaseSavepoint(savepoint)
+                close()
             }
-            getConnection().commit()
         } catch (e: Exception) {
             e.printStackTrace()
         } finally {
@@ -90,7 +98,7 @@ class StatsDB : JavaPlugin() {
         }
     }
 
-    private fun addBatches(): Boolean {
+    private fun addBatches(statementMap: Map<Enum<*>, PreparedStatement>): Boolean {
         val updates = statementMap[SqlType.UPDATE] ?: return false
         Bukkit.getOnlinePlayers().forEach { player ->
             val uuid = getBytesFromUUID(player)
