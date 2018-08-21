@@ -13,6 +13,7 @@ import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.SQLException
 import java.sql.Types
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
 import javax.sql.DataSource
 
@@ -73,7 +74,7 @@ class StatsDB : JavaPlugin() {
         if (syncLock.isLocked) {
             return
         }
-        if (!syncLock.tryLock()) {
+        if (!syncLock.tryLock(10, TimeUnit.SECONDS)) {
             return
         }
         try {
@@ -82,6 +83,7 @@ class StatsDB : JavaPlugin() {
                 val statementMap = prepareStatements(this)
                 if (!addBatches(statementMap)) {
                     this.rollback(savepoint)
+                    statementMap.values.forEach { it.close() }
                     return
                 }
                 statementMap.values.forEach {
