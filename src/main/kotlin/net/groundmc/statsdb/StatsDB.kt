@@ -33,7 +33,6 @@ class StatsDB : JavaPlugin() {
         datasource = HikariDataSource().apply {
             jdbcUrl = config.getString("database.url")
                     .replace("\$dataFolder", dataFolder.absolutePath)
-            driverClassName = config.getString("database.driver")
             username = config.getString("database.username", "")
             password = config.getString("database.password", "")
             addDataSourceProperty("journal_mode", "wal")
