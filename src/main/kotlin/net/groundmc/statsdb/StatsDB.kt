@@ -75,6 +75,7 @@ class StatsDB : JavaPlugin() {
             return
         }
         if (!syncLock.tryLock(10, TimeUnit.SECONDS)) {
+            logger.warning("Syncing was locked for 10 seconds! Check your connection to the database!")
             return
         }
         try {
