@@ -41,10 +41,19 @@ class StatsDB : JavaPlugin() {
             isAutoCommit = false
         }
 
+        checkConnection()
+
         createTable()
         registerTasks()
         registerEventListener()
         registerCommand()
+    }
+
+    private fun checkConnection() {
+        val connection = getConnection()
+        if (connection.isValid(10)) {
+            logger.info("Connection to ${connection.metaData.url}")
+        }
     }
 
     override fun onDisable() {
