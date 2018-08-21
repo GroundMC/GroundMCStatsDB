@@ -78,18 +78,17 @@ class StatsDB : JavaPlugin() {
             return
         }
         try {
-            with(getConnection()) {
-                val statementMap = prepareStatements(this)
-                if (!addBatches(statementMap)) {
-                    statementMap.values.forEach { it.close() }
-                    return
-                }
-                statementMap.values.forEach {
-                    it.executeBatch()
-                }
-                commit()
-                close()
+            val connection = getConnection()
+            val statementMap = prepareStatements(connection)
+            if (!addBatches(statementMap)) {
+                statementMap.values.forEach { it.close() }
+                return
             }
+            statementMap.values.forEach {
+                it.executeBatch()
+            }
+            connection.commit()
+            connection.close()
         } catch (e: Exception) {
             e.printStackTrace()
         } finally {
