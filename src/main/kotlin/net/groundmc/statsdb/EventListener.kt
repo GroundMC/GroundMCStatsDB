@@ -87,7 +87,7 @@ internal class EventListener(private val statsDb: StatsDB) : Listener {
                         event.player.getStatistic(stat)
                 ))
             }
-        }
+        }.start()
     }
 
     @EventHandler
@@ -101,6 +101,6 @@ internal class EventListener(private val statsDb: StatsDB) : Listener {
                         event.player.getStatistic(stat)
                 ))
             }
-        }
+        }.start()
     }
 }
