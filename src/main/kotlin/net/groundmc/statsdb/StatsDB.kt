@@ -89,14 +89,18 @@ class StatsDB : JavaPlugin() {
         }
         try {
             val connection = getConnection()
+            val savepoint = connection.setSavepoint()
             val statementMap = prepareStatements(connection)
             if (!addBatches(statementMap)) {
+                connection.rollback(savepoint)
+                connection.releaseSavepoint(savepoint)
                 return
             }
             statementMap.values.forEach {
                 it.executeBatch()
             }
             connection.commit()
+            connection.releaseSavepoint(savepoint)
             connection.close()
         } catch (e: Exception) {
             e.printStackTrace()
