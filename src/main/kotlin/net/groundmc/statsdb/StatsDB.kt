@@ -35,7 +35,6 @@ class StatsDB : JavaPlugin() {
                     .replace("\$dataFolder", dataFolder.absolutePath)
             username = config.getString("database.username", "")
             password = config.getString("database.password", "")
-            addDataSourceProperty("journal_mode", "wal")
             transactionIsolation = "TRANSACTION_READ_COMMITTED"
             isAutoCommit = false
         }
@@ -89,7 +88,6 @@ class StatsDB : JavaPlugin() {
         }
         try {
             val connection = getConnection()
-            connection.autoCommit = false
             val savepoint = connection.setSavepoint()
             val statementMap = prepareStatements(connection)
             if (!addBatches(statementMap)) {
