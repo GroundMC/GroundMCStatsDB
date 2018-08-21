@@ -79,10 +79,8 @@ class StatsDB : JavaPlugin() {
         }
         try {
             with(getConnection()) {
-                val savepoint = setSavepoint()
                 val statementMap = prepareStatements(this)
                 if (!addBatches(statementMap)) {
-                    this.rollback(savepoint)
                     statementMap.values.forEach { it.close() }
                     return
                 }
@@ -90,7 +88,6 @@ class StatsDB : JavaPlugin() {
                     it.executeBatch()
                 }
                 commit()
-                releaseSavepoint(savepoint)
                 close()
             }
         } catch (e: Exception) {
