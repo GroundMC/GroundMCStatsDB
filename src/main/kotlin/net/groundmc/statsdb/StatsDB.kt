@@ -81,6 +81,7 @@ class StatsDB : JavaPlugin() {
 
     private fun synchronizeStats() {
         if (syncLock.isLocked) {
+            logger.warning("Syncing is still ongoing! High load?")
             return
         }
         if (!syncLock.tryLock(10, TimeUnit.SECONDS)) {
@@ -91,7 +92,6 @@ class StatsDB : JavaPlugin() {
             val connection = getConnection()
             val statementMap = prepareStatements(connection)
             if (!addBatches(statementMap)) {
-                statementMap.values.forEach { it.close() }
                 return
             }
             statementMap.values.forEach {
