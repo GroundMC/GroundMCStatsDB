@@ -16,7 +16,7 @@ import java.util.*
 
 internal class EventListener(private val statsDb: StatsDB) : Listener {
 
-    val statisticsQueue: Queue<StatisticsObject> = Queues.newConcurrentLinkedQueue()
+    val statisticsQueue: Queue<StatisticsObject> = Queues.newConcurrentLinkedQueue<StatisticsObject>()
 
     @EventHandler
     fun onStatisticIncrement(event: PlayerStatisticIncrementEvent) {
@@ -43,21 +43,21 @@ internal class EventListener(private val statsDb: StatsDB) : Listener {
         }
     }
 
-    private val selectStatistics: PreparedStatement
-        get() {
-            val connection = statsDb.getConnection()
-                    ?: throw IllegalStateException()
-            return connection.prepareStatement(
-                    "SELECT * FROM `Statistics` WHERE `player_id` = ?")
-        }
+    private fun getSelectStatistics(): PreparedStatement {
+        val connection = statsDb.getConnection()
+                ?: throw IllegalStateException()
+        return connection.prepareStatement(
+                "SELECT * FROM `Statistics` WHERE `player_id` = ?")
+    }
 
     @EventHandler
     fun onJoin(event: PlayerJoinEvent) {
         async {
             val uuid = StatsDB.getBytesFromUUID(event.player)
             try {
-                selectStatistics.setBytes(1, uuid)
-                val rs = selectStatistics.executeQuery()
+                val query = getSelectStatistics()
+                query.setBytes(1, uuid)
+                val rs = query.executeQuery()
                 while (rs.next()) {
                     val statistic = Statistic.valueOf(rs.getString("statistic"))
                     when (statistic.type) {
@@ -74,6 +74,7 @@ internal class EventListener(private val statsDb: StatsDB) : Listener {
                         }
                     }
                 }
+                query.close()
                 rs.close()
             } catch (e: SQLException) {
                 e.printStackTrace()
