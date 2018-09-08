@@ -11,7 +11,6 @@ import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.event.player.PlayerStatisticIncrementEvent
 import java.sql.PreparedStatement
-import java.sql.SQLException
 import java.util.*
 
 internal class EventListener(private val statsDb: StatsDB) : Listener {
@@ -54,32 +53,27 @@ internal class EventListener(private val statsDb: StatsDB) : Listener {
     fun onJoin(event: PlayerJoinEvent) {
         async {
             val uuid = StatsDB.getBytesFromUUID(event.player)
-            try {
-                val query = getSelectStatistics()
+            getSelectStatistics().use { query ->
                 query.setBytes(1, uuid)
-                val rs = query.executeQuery()
-                while (rs.next()) {
-                    val statistic = Statistic.valueOf(rs.getString("statistic"))
-                    when (statistic.type) {
-                        Statistic.Type.UNTYPED -> event.player.setStatistic(statistic, rs.getInt("value"))
-                        Statistic.Type.ENTITY -> {
-                            val entity = EntityType.valueOf(rs.getString("entity"))
-                            event.player.setStatistic(statistic, entity, rs.getInt("value"))
-                        }
-                        Statistic.Type.BLOCK, Statistic.Type.ITEM -> {
-                            val material = Material.valueOf(rs.getString("material"))
-                            event.player.setStatistic(statistic, material, rs.getInt("value"))
-                        }
-                        null -> {
+                query.executeQuery().use { rs ->
+                    while (rs.next()) {
+                        val statistic = Statistic.valueOf(rs.getString("statistic"))
+                        when (statistic.type) {
+                            Statistic.Type.UNTYPED -> event.player.setStatistic(statistic, rs.getInt("value"))
+                            Statistic.Type.ENTITY -> {
+                                val entity = EntityType.valueOf(rs.getString("entity"))
+                                event.player.setStatistic(statistic, entity, rs.getInt("value"))
+                            }
+                            Statistic.Type.BLOCK, Statistic.Type.ITEM -> {
+                                val material = Material.valueOf(rs.getString("material"))
+                                event.player.setStatistic(statistic, material, rs.getInt("value"))
+                            }
+                            null -> {
+                            }
                         }
                     }
                 }
-                query.close()
-                rs.close()
-            } catch (e: SQLException) {
-                e.printStackTrace()
             }
-
             StatsDB.STATISTIC_LIST.forEach { stat ->
                 statisticsQueue.add(StatisticsObject(
                         uuid,
