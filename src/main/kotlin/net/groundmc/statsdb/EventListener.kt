@@ -1,16 +1,15 @@
 package net.groundmc.statsdb
 
 import com.google.common.collect.Queues
-import kotlinx.coroutines.experimental.async
-import org.bukkit.Material
+import kotlinx.coroutines.launch
 import org.bukkit.Statistic
-import org.bukkit.entity.EntityType
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.event.player.PlayerStatisticIncrementEvent
-import java.sql.PreparedStatement
+import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.transactions.experimental.suspendedTransactionAsync
 import java.util.*
 
 internal class EventListener(private val statsDb: StatsDB) : Listener {
@@ -19,11 +18,11 @@ internal class EventListener(private val statsDb: StatsDB) : Listener {
 
     @EventHandler
     fun onStatisticIncrement(event: PlayerStatisticIncrementEvent) {
-        val uuid = StatsDB.getBytesFromUUID(event.player)
+        val uuid = event.player.uniqueId
 
         val statObject = statisticsQueue.asSequence()
                 .firstOrNull { (uuid1, statistic, material, entity) ->
-                    Arrays.equals(uuid1, uuid) &&
+                    uuid1 == uuid &&
                             statistic == event.statistic &&
                             event.material == material &&
                             event.entityType == entity
@@ -42,59 +41,52 @@ internal class EventListener(private val statsDb: StatsDB) : Listener {
         }
     }
 
-    private fun getSelectStatistics(): PreparedStatement {
-        val connection = statsDb.getConnection()
-                ?: throw IllegalStateException()
-        return connection.prepareStatement(
-                "SELECT * FROM `Statistics` WHERE `player_id` = ?")
-    }
-
     @EventHandler
     fun onJoin(event: PlayerJoinEvent) {
-        async {
-            val uuid = StatsDB.getBytesFromUUID(event.player)
-            getSelectStatistics().use { query ->
-                query.setBytes(1, uuid)
-                query.executeQuery().use { rs ->
-                    while (rs.next()) {
-                        val statistic = Statistic.valueOf(rs.getString("statistic"))
-                        when (statistic.type) {
-                            Statistic.Type.UNTYPED -> event.player.setStatistic(statistic, rs.getInt("value"))
-                            Statistic.Type.ENTITY -> {
-                                val entity = EntityType.valueOf(rs.getString("entity"))
-                                event.player.setStatistic(statistic, entity, rs.getInt("value"))
-                            }
-                            Statistic.Type.BLOCK, Statistic.Type.ITEM -> {
-                                val material = Material.valueOf(rs.getString("material"))
-                                event.player.setStatistic(statistic, material, rs.getInt("value"))
-                            }
-                            null -> {
-                            }
-                        }
+        statsDb.scope.launch {
+            suspendedTransactionAsync(db = statsDb.database) {
+                statsDb.statistics.select {
+                    statsDb.statistics.uuid eq event.player.uniqueId
+                }.map {
+                    StatisticsObject(
+                            it[statsDb.statistics.uuid],
+                            it[statsDb.statistics.statistic],
+                            it[statsDb.statistics.material],
+                            it[statsDb.statistics.entity],
+                            it[statsDb.statistics.value]
+                    )
+                }
+            }.await().forEach {
+                when (it.statistic.type) {
+                    Statistic.Type.UNTYPED -> event.player.setStatistic(it.statistic, it.value)
+                    Statistic.Type.ENTITY -> event.player.setStatistic(it.statistic, it.entity, it.value)
+                    Statistic.Type.BLOCK, Statistic.Type.ITEM -> event.player.setStatistic(it.statistic, it.material, it.value)
+                    else -> {
                     }
                 }
             }
-            StatsDB.STATISTIC_LIST.forEach { stat ->
+            StatsDB.UPDATE_STATISTICS.forEach { stat ->
                 statisticsQueue.add(StatisticsObject(
-                        uuid,
-                        stat, null, null,
+                        event.player.uniqueId,
+                        stat,
+                        null,
+                        null,
                         event.player.getStatistic(stat)
                 ))
             }
-        }.start()
+        }
     }
 
     @EventHandler
     fun onLeave(event: PlayerQuitEvent) {
-        async {
-            val uuid = StatsDB.getBytesFromUUID(event.player)
-            StatsDB.STATISTIC_LIST.forEach { stat ->
+        statsDb.scope.launch {
+            StatsDB.UPDATE_STATISTICS.forEach { stat ->
                 statisticsQueue.add(StatisticsObject(
-                        uuid,
+                        event.player.uniqueId,
                         stat, null, null,
                         event.player.getStatistic(stat)
                 ))
             }
-        }.start()
+        }
     }
 }

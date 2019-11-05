@@ -5,7 +5,7 @@ import org.bukkit.Statistic
 import org.bukkit.entity.EntityType
 import java.util.*
 
-internal data class StatisticsObject(val uuid: ByteArray, val statistic: Statistic,
+internal data class StatisticsObject(val uuid: UUID, val statistic: Statistic,
                                      val material: Material?, val entity: EntityType?,
                                      var value: Int) {
 
@@ -15,7 +15,7 @@ internal data class StatisticsObject(val uuid: ByteArray, val statistic: Statist
 
         other as StatisticsObject
 
-        if (!Arrays.equals(uuid, other.uuid)) return false
+        if (uuid != other.uuid) return false
         if (statistic != other.statistic) return false
         if (material != other.material) return false
         if (entity != other.entity) return false
@@ -25,7 +25,7 @@ internal data class StatisticsObject(val uuid: ByteArray, val statistic: Statist
     }
 
     override fun hashCode(): Int {
-        var result = Arrays.hashCode(uuid)
+        var result = uuid.hashCode()
         result = 31 * result + statistic.hashCode()
         if (material != null) {
             result = 31 * result + material.hashCode()

@@ -1,5 +1,6 @@
 package net.groundmc.statsdb
 
+import net.groundmc.statsdb.database.Statistics
 import org.bukkit.Bukkit
 import org.bukkit.Material
 import org.bukkit.Statistic
@@ -9,11 +10,14 @@ import org.bukkit.command.CommandSender
 import org.bukkit.command.TabCompleter
 import org.bukkit.entity.EntityType
 import org.bukkit.entity.Player
-import java.sql.PreparedStatement
-import java.sql.SQLException
+import org.jetbrains.exposed.sql.Op
+import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.transactions.transaction
 
 @Suppress("DEPRECATION")
-internal class StatsDBCommand(private val statsDB: StatsDB) : CommandExecutor, TabCompleter {
+internal class StatsDBCommand(private val statsDB: StatsDB,
+                              private val statistics: Statistics) : CommandExecutor, TabCompleter {
 
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<String>): Boolean {
         Bukkit.getScheduler().runTaskAsynchronously(statsDB) {
@@ -27,122 +31,105 @@ internal class StatsDBCommand(private val statsDB: StatsDB) : CommandExecutor, T
         return true
     }
 
-    private fun playerSubstatistic(sender: CommandSender, args: Array<String>) {
-        try {
-            val stat = Statistic.valueOf(args[0])
-            val builder = StringBuilder(
-                    "SELECT `value` FROM `Statistics` " +
-                            "WHERE `player_id` = ? " +
-                            "AND `statistic` = ? ")
-            val connection = statsDB.getConnection() ?: return
-            if (sender is Player) {
-
-                val player = Bukkit.getOfflinePlayer(args[2])
-
-                appendSubstatisticSQL(stat, builder)
-
-                val statement = connection.prepareStatement(
-                        builder.toString())
-                statement.setBytes(1, StatsDB.getBytesFromUUID(player))
-                statement.setString(2, stat.name)
-                statement.setString(3, args[1])
-                executeSendAndClose(sender, stat, statement)
-            }
-        } catch (e: SQLException) {
-            e.printStackTrace()
+    private fun selfStatistic(sender: CommandSender, args: Array<String>) {
+        if (sender !is Player) {
+            return
         }
-
+        val stat = Statistic.valueOf(args[0])
+        transaction(statsDB.database)
+        statistics.select {
+            (statistics.uuid eq sender.uniqueId) and
+                    (statistics.statistic eq stat)
+        }.map {
+            StatisticsObject(
+                    it[statistics.uuid],
+                    it[statistics.statistic],
+                    it[statistics.material],
+                    it[statistics.entity],
+                    it[statistics.value]
+            )
+        }
+    }.forEach
+    {
+        sender.sendMessage("${it.statistic.name}: ${it.value}")
     }
+}
 
-    @Throws(SQLException::class)
-    private fun executeSendAndClose(sender: CommandSender, stat: Statistic, statement: PreparedStatement) {
-        val result = statement.executeQuery()
-        if (result.next()) {
-            sender.sendMessage(stat.name + ": " + result.getString(1))
+    private fun playerSubstatistic(sender: CommandSender, args: Array<String>) {
+        val player = Bukkit.getOfflinePlayer(args[2])
+            val stat = Statistic.valueOf(args[0])
+
+        statistics.runCatching {
+            transaction(statsDB.database)
+            select {
+                (uuid eq player.uniqueId) and
+                        (statistic eq stat) and
+                        when (stat.type) {
+                            Statistic.Type.ITEM, Statistic.Type.BLOCK -> {
+                                material eq Material.valueOf(args[1])
+                            }
+                            Statistic.Type.ENTITY -> {
+                                entity eq EntityType.valueOf(args[1])
+                            }
+                            else -> Op.TRUE
+                        }
+            }
         }
-        result.close()
-        statement.close()
+    }.onSuccess {
+    query ->
+    query.map {
+        StatisticsObject(
+                it[statistics.uuid],
+                it[statistics.statistic],
+                it[statistics.material],
+                it[statistics.entity],
+                it[statistics.value]
+        )
+    }.forEach {
+        sender.sendMessage("${it.statistic.name}: ${it.value}")
+    }
+}.onFailure {
+    it.printStackTrace()
+        }
     }
 
     private fun subStatisticOrPlayerStatistic(sender: CommandSender, args: Array<String>) {
-        try {
-            val stat = Statistic.valueOf(args[0])
-            val builder = StringBuilder(
-                    "SELECT `value` FROM `Statistics` " +
-                            "WHERE `player_id` = ? " +
-                            "AND `statistic` = ? ")
-            val connection = statsDB.getConnection() ?: return
-            if (stat.isSubstatistic) {
-                if (sender !is Player) {
-                    return
-                }
-                appendSubstatisticSQL(stat, builder)
-
-                val statement = connection.prepareStatement(
-                        builder.toString())
-                statement.setBytes(1, StatsDB.getBytesFromUUID(sender))
-                statement.setString(2, stat.name)
-                statement.setString(3, args[1])
-                executeSendAndClose(sender, stat, statement)
-            } else {
-                val player = Bukkit.getOfflinePlayer(args[1])
-                val statement = connection.prepareStatement(
-                        builder.toString())
-                statement.setBytes(1, StatsDB.getBytesFromUUID(player))
-                statement.setString(2, stat.name)
-                val result = statement.executeQuery()
-                if (result.next()) {
-                    sender.sendMessage(stat.name + ": " + result.getString(1))
-                } else {
-                    sender.sendMessage("Statistic not recorded yet.")
-                }
-                result.close()
-                statement.close()
-            }
-        } catch (e: IllegalArgumentException) {
-            sender.sendMessage("Unrecognized statistic")
-        } catch (e: SQLException) {
-            e.printStackTrace()
-        }
-
-    }
-
-    private fun appendSubstatisticSQL(stat: Statistic, builder: StringBuilder) {
-        when (stat.type) {
-            Statistic.Type.ITEM, Statistic.Type.BLOCK -> builder.append("AND `material` = ?")
-            Statistic.Type.ENTITY -> builder.append("AND `entity` = ?")
-            else -> Unit
-        }
-    }
-
-    private fun selfStatistic(sender: CommandSender, args: Array<String>) {
-        try {
-            val stat = Statistic.valueOf(args[0])
-            if (sender !is Player) {
+        val stat = Statistic.valueOf(args[0])
+        if (stat.isSubstatistic) {
+            playerSubstatistic(sender, arrayOf(args[0], args[1], sender.name))
+        } else {
+            val player: Player? = Bukkit.getPlayer(args[1])
+            if (player == null) {
+                sender.sendMessage("This player is not online, can't get statistics")
                 return
             }
-            val connection = statsDB.getConnection() ?: return
-            val statement = connection.prepareStatement(
-                    "SELECT `value` FROM `Statistics` " +
-                            "WHERE `player_id` = ?" +
-                            "AND `statistic` = ?"
-            )
-            statement.setBytes(1, StatsDB.getBytesFromUUID(sender))
-            statement.setString(2, stat.name)
-            executeSendAndClose(sender, stat, statement)
-        } catch (e: IllegalArgumentException) {
-            sender.sendMessage("Unrecognized statistic")
-        } catch (e: SQLException) {
-            sender.sendMessage("Error querying the statistic")
-            e.printStackTrace()
+            transaction(statsDB.database) {
+                statistics.select {
+                    (statistics.uuid eq player.uniqueId) and
+                            (statistics.statistic eq stat)
+                }
+            }.let { query ->
+                if (query.empty()) {
+                    sender.sendMessage("Statistic not recorded yet.")
+                } else {
+                    query.map {
+                        StatisticsObject(
+                                it[statistics.uuid],
+                                it[statistics.statistic],
+                                it[statistics.material],
+                                it[statistics.entity],
+                                it[statistics.value]
+                        )
+                    }.forEach {
+                        sender.sendMessage("${it.statistic.name}: ${it.value}")
+                    }
+                }
+            }
         }
-
     }
 
     private fun version(sender: CommandSender) {
-        if (sender.hasPermission(Bukkit.getPluginManager().getPermission("statsdb.admin"))) {
-            sender.sendMessage("Running StatsDB commit " + statsDB.description.version)
-        }
+        sender.sendMessage("Running StatsDB commit " + statsDB.description.version)
     }
 
     override fun onTabComplete(sender: CommandSender, command: Command, alias: String, args: Array<String>): List<String>? {
@@ -150,7 +137,6 @@ internal class StatsDBCommand(private val statsDB: StatsDB) : CommandExecutor, T
             1 -> return getStatisticNameBeginningWith(args[0])
             2 -> {
                 return when (Statistic.valueOf(args[0]).type) {
-                    Statistic.Type.UNTYPED -> getPlayerNamesBeginningWith(args[1])
                     Statistic.Type.BLOCK -> getBlockNamesBeginningWith(args[1])
                     Statistic.Type.ITEM -> getItemNamesBeginningWith(args[1])
                     Statistic.Type.ENTITY -> getEntityNamesBeginningWith(args[1])
