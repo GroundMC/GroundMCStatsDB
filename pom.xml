@@ -6,7 +6,7 @@
 
     <groupId>net.groundmc</groupId>
     <artifactId>GroundMCStatsDB</artifactId>
-    <version>1.4-b${env.BUILD_NUMBER}</version>
+    <version>1.4</version>
 
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
