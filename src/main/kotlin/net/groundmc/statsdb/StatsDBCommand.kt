@@ -15,7 +15,6 @@ import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.transactions.transaction
 
-@Suppress("DEPRECATION")
 internal class StatsDBCommand(private val statsDB: StatsDB,
                               private val statistics: Statistics) : CommandExecutor, TabCompleter {
 
@@ -36,60 +35,63 @@ internal class StatsDBCommand(private val statsDB: StatsDB,
             return
         }
         val stat = Statistic.valueOf(args[0])
-        transaction(statsDB.database)
-        statistics.select {
-            (statistics.uuid eq sender.uniqueId) and
-                    (statistics.statistic eq stat)
-        }.map {
-            StatisticsObject(
-                    it[statistics.uuid],
-                    it[statistics.statistic],
-                    it[statistics.material],
-                    it[statistics.entity],
-                    it[statistics.value]
-            )
+        transaction(statsDB.database) {
+            statistics.select {
+                (statistics.uuid eq sender.uniqueId) and
+                        (statistics.statistic eq stat)
+            }.map {
+                StatisticsObject(
+                        it[statistics.uuid],
+                        it[statistics.statistic],
+                        it[statistics.material],
+                        it[statistics.entity],
+                        it[statistics.value]
+                )
+            }
+        }.forEach {
+            sender.sendMessage("${it.statistic.name}: ${it.value}")
         }
-    }.forEach
-    {
-        sender.sendMessage("${it.statistic.name}: ${it.value}")
     }
-}
 
     private fun playerSubstatistic(sender: CommandSender, args: Array<String>) {
-        val player = Bukkit.getOfflinePlayer(args[2])
-            val stat = Statistic.valueOf(args[0])
+        val player: Player? = Bukkit.getPlayer(args[2])
+        if (player == null) {
+            sender.sendMessage("This player is not online, can't get statistics")
+            return
+        }
+
+        val stat = Statistic.valueOf(args[0])
 
         statistics.runCatching {
-            transaction(statsDB.database)
-            select {
-                (uuid eq player.uniqueId) and
-                        (statistic eq stat) and
-                        when (stat.type) {
-                            Statistic.Type.ITEM, Statistic.Type.BLOCK -> {
-                                material eq Material.valueOf(args[1])
+            transaction(statsDB.database) {
+                select {
+                    (uuid eq player.uniqueId) and
+                            (statistic eq stat) and
+                            when (stat.type) {
+                                Statistic.Type.ITEM, Statistic.Type.BLOCK -> {
+                                    material eq Material.valueOf(args[1])
+                                }
+                                Statistic.Type.ENTITY -> {
+                                    entity eq EntityType.valueOf(args[1])
+                                }
+                                else -> Op.TRUE
                             }
-                            Statistic.Type.ENTITY -> {
-                                entity eq EntityType.valueOf(args[1])
-                            }
-                            else -> Op.TRUE
-                        }
+                }
             }
-        }
-    }.onSuccess {
-    query ->
-    query.map {
-        StatisticsObject(
-                it[statistics.uuid],
-                it[statistics.statistic],
-                it[statistics.material],
-                it[statistics.entity],
-                it[statistics.value]
-        )
-    }.forEach {
-        sender.sendMessage("${it.statistic.name}: ${it.value}")
-    }
-}.onFailure {
-    it.printStackTrace()
+        }.onSuccess { query ->
+            query.map {
+                StatisticsObject(
+                        it[statistics.uuid],
+                        it[statistics.statistic],
+                        it[statistics.material],
+                        it[statistics.entity],
+                        it[statistics.value]
+                )
+            }.forEach {
+                sender.sendMessage("${it.statistic.name}: ${it.value}")
+            }
+        }.onFailure {
+            it.printStackTrace()
         }
     }
 
