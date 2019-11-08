@@ -1,8 +1,7 @@
 name: StatsDB
-version: ${env.GIT_COMMIT}
-author: GiantTreeLP
+version: 1.4
+author: GiantTree
 main: net.groundmc.statsdb.StatsDB
-depend: [GroundMCKotlinLoader]
 
 commands:
   statsdb:
