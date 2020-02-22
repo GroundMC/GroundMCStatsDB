@@ -6,7 +6,7 @@
 
     <groupId>net.groundmc</groupId>
     <artifactId>GroundMCStatsDB</artifactId>
-    <version>1.4</version>
+    <version>1.5-SNAPSHOT</version>
 
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
@@ -30,7 +30,29 @@
             <name>bintray</name>
             <url>https://dl.bintray.com/kotlin/exposed</url>
         </repository>
+        <repository>
+            <id>cloudnet</id>
+            <name>CloudNet Snapshot Repository</name>
+            <url>https://repo.cloudnetservice.eu/repository/snapshots/</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
     </repositories>
+
+    <distributionManagement>
+        <repository>
+            <id>cloudnet</id>
+            <url>https://repo.cloudnetservice.eu/repository/releases/</url>
+        </repository>
+        <snapshotRepository>
+            <id>cloudnet</id>
+            <url>https://repo.cloudnetservice.eu/repository/snapshots/</url>
+        </snapshotRepository>
+    </distributionManagement>
 
     <dependencies>
         <dependency>
