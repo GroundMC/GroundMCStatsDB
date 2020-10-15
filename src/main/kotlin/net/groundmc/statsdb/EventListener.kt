@@ -20,7 +20,7 @@ internal class EventListener(private val statsDb: StatsDB) : Listener {
     fun onStatisticIncrement(event: PlayerStatisticIncrementEvent) {
         val uuid = event.player.uniqueId
 
-        val statObject = statisticsQueue.asSequence()
+        val statObject = statisticsQueue
                 .firstOrNull { (uuid1, statistic, material, entity) ->
                     uuid1 == uuid &&
                             statistic == event.statistic &&
